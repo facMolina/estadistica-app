@@ -2,16 +2,13 @@
 
 # Modelos completamente implementados en app_streamlit.py
 IMPLEMENTED_MODELS = {
+    # Discretos
     "Binomial",
-}
-
-# Modelos que la CLI puede identificar pero aún no están en Streamlit
-PENDING_MODELS = {
+    "Poisson",
     "Pascal",
     "Hipergeometrico",
     "Hiper-Pascal",
-    "Poisson",
-    "Multinomial",
+    # Continuos
     "Normal",
     "Log-Normal",
     "Exponencial",
@@ -21,6 +18,11 @@ PENDING_MODELS = {
     "Gumbel Max",
     "Pareto",
     "Uniforme",
+}
+
+# Modelos que la CLI puede identificar pero aún no están en Streamlit
+PENDING_MODELS = {
+    "Multinomial",
 }
 
 # Aliases que puede generar Claude → nombre canónico

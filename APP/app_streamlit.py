@@ -9,13 +9,25 @@ import streamlit as st
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from models.discrete.binomial import Binomial
+from models.discrete.poisson import Poisson
+from models.discrete.pascal import Pascal
+from models.discrete.hypergeometric import Hipergeometrico
+from models.discrete.hiper_pascal import HiperPascal
 from ui.components.detail_selector import render_detail_selector
 from ui.components.step_display import render_calc_result
 from ui.components.graph_panel import render_graphs
 from ui.components.table_panel import render_table
 from ui.components.summary_panel import render_summary
+from ui.components.data_processing_ui import render_dp_sidebar, render_dp_main
+from ui.components.probability_ui import render_probability_sidebar, render_probability_main
+from ui.components.continuous_ui import (
+    CONTINUOUS_MODELS as _CONT_MODELS,
+    render_continuous_sidebar,
+    render_continuous_main,
+)
 from calculation.statistics_common import format_number
 from config.settings import SESSION_CONFIG_PATH
+from interpreter.streamlit_interpreter import interpret_turn, apply_sc_to_session
 
 # --- Config ---
 st.set_page_config(
@@ -25,7 +37,7 @@ st.set_page_config(
 )
 
 st.title("Calculadora de Estadistica General")
-st.caption("Ing. Sergio Anibal Dopazo - UADE")
+st.caption("UADE — Probabilidad y Estadística General")
 
 # --- Leer session_config escrito por la CLI (una sola vez por sesion) ---
 if "session_config_loaded" not in st.session_state:
@@ -42,148 +54,418 @@ if "session_config_loaded" not in st.session_state:
 sc = st.session_state.get("sc")
 sc_is_new = st.session_state.get("sc_is_new", False)
 
+# --- Init session_state del intérprete NL ---
+if "nl_state" not in st.session_state:
+    st.session_state.update({
+        "nl_state": "idle",
+        "nl_messages": [],
+        "nl_follow_up_question": "",
+        "nl_partial": None,
+        "nl_error": None,
+    })
+
 if sc_is_new:
-    st.info(f"Problema cargado desde CLI: {sc.get('interpretation', '')}")
+    st.info(f"Problema cargado: {sc.get('interpretation', '')}")
     st.session_state["sc_is_new"] = False
 
-# Etiquetas de consulta (mismo orden que el selectbox de abajo)
-_QUERY_LABELS = [
-    "P(r = valor)", "F(r) = P(VA <= valor)", "G(r) = P(VA >= valor)",
-    "P(A <= r <= B)", "Analisis completo",
-]
-_QUERY_TYPE_TO_LABEL = {
-    "probability":   "P(r = valor)",
-    "cdf_left":      "F(r) = P(VA <= valor)",
-    "cdf_right":     "G(r) = P(VA >= valor)",
-    "range":         "P(A <= r <= B)",
-    "full_analysis": "Analisis completo",
+# --- Modelos disponibles ---
+_MODELS = ["Binomial", "Poisson", "Pascal", "Hipergeometrico", "Hiper-Pascal"]  # discretos
+_DISCRETE_MODELS = _MODELS  # alias
+
+# Variable de consulta segun modelo (r o n)
+_MODEL_VAR = {
+    "Binomial": "r", "Poisson": "r",
+    "Pascal": "n", "Hipergeometrico": "r", "Hiper-Pascal": "n",
 }
 
-# Defaults: provienen del session_config si existe, sino valores neutros
-_sc_n = int(sc["params"].get("n", 10)) if sc else 10
-_sc_p = float(sc["params"].get("p", 0.30)) if sc else 0.30
-_sc_qt_label = _QUERY_TYPE_TO_LABEL.get(
-    sc.get("query_type", "full_analysis"), "Analisis completo"
-) if sc else "P(r = valor)"
-_sc_qt_index = _QUERY_LABELS.index(_sc_qt_label) if _sc_qt_label in _QUERY_LABELS else 0
-_sc_r = int(sc["query_params"].get("r", 3)) if sc and sc.get("query_params") else 3
-_sc_a = int(sc["query_params"].get("a", 2)) if sc and sc.get("query_params") else 2
-_sc_b = int(sc["query_params"].get("b", 5)) if sc and sc.get("query_params") else 5
-# Clampar valores de r al dominio [0, n]
-_sc_r = max(0, min(_sc_r, _sc_n))
-_sc_a = max(0, min(_sc_a, _sc_n))
-_sc_b = max(0, min(_sc_b, _sc_n))
 
-# --- Sidebar: Seleccion de modelo y parametros ---
+def _query_labels(var: str) -> list[str]:
+    return [
+        f"P({var} = valor)",
+        f"F({var}) = P(VA <= valor)",
+        f"G({var}) = P(VA >= valor)",
+        f"P(A <= {var} <= B)",
+        "Analisis completo",
+    ]
+
+
+_QUERY_TYPE_TO_KEY = {
+    "probability": 0, "cdf_left": 1, "cdf_right": 2,
+    "range": 3, "full_analysis": 4,
+}
+
+# --- Defaults desde session_config ---
+_sc_model   = sc.get("model", "Binomial") if sc else "Binomial"
+_sc_is_cont = _sc_model in _CONT_MODELS
+if not _sc_is_cont and _sc_model not in _MODELS:
+    _sc_model = "Binomial"
+_sc_qt_idx  = _QUERY_TYPE_TO_KEY.get(sc.get("query_type", "full_analysis"), 4) if sc else 0
+_sc_qp      = sc.get("query_params", {}) if sc else {}
+_sc_params  = sc.get("params", {}) if sc else {}
+
+# Params por modelo
+_sc_n       = int(_sc_params.get("n", 10))
+_sc_p       = float(_sc_params.get("p", 0.30))
+_sc_m       = float(_sc_params.get("m", 5.0))
+_sc_r_pa    = int(_sc_params.get("r", 3))     # Pascal / HiperPascal: exitos buscados
+_sc_N       = int(_sc_params.get("N", 20))
+_sc_R       = int(_sc_params.get("R", 8))
+_sc_n_hiper = int(_sc_params.get("n", 5))     # Hipergeometrico: muestra
+
+# Query value
+_sc_r_val   = int(_sc_qp.get("r", 3))
+_sc_a_val   = int(_sc_qp.get("a", 2))
+_sc_b_val   = int(_sc_qp.get("b", 5))
+
+# --- Continuous sidebar config (populated inside sidebar block) ---
+cont_cfg = None
+detail_level = 2  # default; overwritten in sidebar
+
+# --- Sidebar ---
 with st.sidebar:
-    st.header("Configuracion")
 
-    # Selector de modelo
-    modelo = st.selectbox("Modelo", ["Binomial"])  # Se agregan mas despues
+    # ---- Selector de modo (tope del sidebar) ----
+    app_mode = st.radio(
+        "Modo",
+        ["Modelos de Probabilidad", "Datos Agrupados", "Probabilidad"],
+        horizontal=True,
+        key="app_mode",
+    )
+    st.divider()
 
-    # Parametros segun modelo
-    if modelo == "Binomial":
-        st.subheader("Parametros")
-        n = st.number_input("n (cantidad de pruebas)", min_value=1, max_value=1000, value=_sc_n, step=1)
-        p = st.number_input("p (probabilidad de exito)", min_value=0.0, max_value=1.0, value=_sc_p, step=0.01, format="%.4f")
+    # --- Intérprete de lenguaje natural (todos los modos) ---
+    with st.expander("Interpretar problema",
+                     expanded=st.session_state["nl_state"] == "follow_up"):
+
+        if st.session_state["nl_error"]:
+            st.error(st.session_state["nl_error"])
+            st.session_state["nl_error"] = None
+
+        if st.session_state["nl_state"] == "follow_up":
+            st.info(st.session_state["nl_follow_up_question"])
+
+        placeholder = (
+            "Respondé la pregunta de arriba..."
+            if st.session_state["nl_state"] == "follow_up"
+            else "Describí el problema: modelo, datos agrupados, Bayes, etc."
+        )
+        user_input = st.text_area(
+            "Descripción del problema",
+            placeholder=placeholder,
+            key="nl_input",
+            label_visibility="collapsed",
+            height=80,
+        )
+
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            if st.button("Interpretar", use_container_width=True, type="primary"):
+                if user_input.strip():
+                    with st.spinner("Interpretando..."):
+                        result = interpret_turn(
+                            st.session_state["nl_messages"], user_input.strip()
+                        )
+                    if result["action"] == "complete":
+                        apply_sc_to_session(result["sc"], st.session_state)
+                        st.session_state["sc"] = result["sc"]
+                        st.session_state["sc_is_new"] = True
+                        st.session_state["nl_state"] = "idle"
+                        st.session_state["nl_messages"] = []
+                        st.rerun()
+                    elif result["action"] == "follow_up":
+                        st.session_state["nl_state"] = "follow_up"
+                        st.session_state["nl_follow_up_question"] = result["question"]
+                        st.session_state["nl_partial"] = result["partial"]
+                        st.session_state["nl_messages"] = result["messages"]
+                        st.rerun()
+                    else:
+                        st.session_state["nl_error"] = result["message"]
+                        st.session_state["nl_messages"] = result["messages"]
+                        st.rerun()
+        with col2:
+            if st.session_state["nl_state"] == "follow_up":
+                if st.button("Cancelar", use_container_width=True):
+                    st.session_state.update({
+                        "nl_state": "idle",
+                        "nl_messages": [],
+                        "nl_follow_up_question": "",
+                        "nl_partial": None,
+                    })
+                    st.rerun()
+
+    st.divider()
+
+    # ================================================================
+    # MODO: Modelos de Probabilidad
+    # ================================================================
+    if app_mode == "Modelos de Probabilidad":
+
+        st.header("Configuracion")
+
+        model_type = st.radio(
+            "Tipo de modelo",
+            ["Discreto", "Continuo"],
+            horizontal=True,
+            index=1 if _sc_is_cont else 0,
+        )
+
+        if model_type == "Continuo":
+            cont_cfg = render_continuous_sidebar(sc=sc if _sc_is_cont else None)
+            modelo = cont_cfg["model_name"]
+        else:
+            modelo = st.selectbox(
+                "Modelo",
+                _MODELS,
+                index=_MODELS.index(_sc_model) if _sc_model in _MODELS else 0,
+            )
+
+        if model_type == "Discreto":
+            var = _MODEL_VAR[modelo]
+            ql = _query_labels(var)
+
+            st.subheader("Parametros")
+
+            # ---- Binomial ----
+            if modelo == "Binomial":
+                n = st.number_input("n (ensayos)", min_value=1, max_value=1000, value=_sc_n, step=1)
+                p = st.number_input("p (prob. exito)", min_value=0.0, max_value=1.0,
+                                    value=_sc_p, step=0.01, format="%.4f")
+
+            # ---- Poisson ----
+            elif modelo == "Poisson":
+                m = st.number_input("m (media = λ·t)", min_value=0.01, max_value=500.0,
+                                    value=_sc_m, step=0.5, format="%.4f")
+
+            # ---- Pascal ----
+            elif modelo == "Pascal":
+                r_pa = st.number_input("r (exitos buscados)", min_value=1, max_value=500,
+                                       value=_sc_r_pa, step=1)
+                p = st.number_input("p (prob. exito)", min_value=0.001, max_value=1.0,
+                                    value=_sc_p, step=0.01, format="%.4f")
+
+            # ---- Hipergeometrico ----
+            elif modelo == "Hipergeometrico":
+                N_h = st.number_input("N (total del lote)", min_value=1, max_value=10000,
+                                      value=_sc_N, step=1)
+                R_h = st.number_input("R (favorables en lote)", min_value=0, max_value=int(N_h),
+                                      value=min(_sc_R, int(N_h)), step=1)
+                n_h = st.number_input("n (tamaño muestra)", min_value=1, max_value=int(N_h),
+                                      value=min(_sc_n_hiper, int(N_h)), step=1)
+
+            # ---- Hiper-Pascal ----
+            elif modelo == "Hiper-Pascal":
+                N_hp = st.number_input("N (total del lote)", min_value=1, max_value=10000,
+                                       value=_sc_N, step=1)
+                R_hp = st.number_input("R (favorables en lote)", min_value=1, max_value=int(N_hp),
+                                       value=min(_sc_R, int(N_hp)), step=1)
+                r_hp = st.number_input("r (exitos buscados)", min_value=1, max_value=int(R_hp),
+                                       value=min(_sc_r_pa, int(R_hp)), step=1)
+
+            st.markdown("---")
+            st.subheader("Consulta")
+            query_type_label = st.selectbox("Tipo de consulta", ql, index=min(_sc_qt_idx, len(ql) - 1))
+            qt_by_pos = ["probability", "cdf_left", "cdf_right", "range", "full_analysis"]
+            query_type = qt_by_pos[ql.index(query_type_label)]
+
+            # Dominio para clampeo
+            if modelo == "Binomial":
+                _dom_min, _dom_max = 0, int(n)
+            elif modelo == "Poisson":
+                _dom_min, _dom_max = 0, max(int(m * 4), 20)
+            elif modelo == "Pascal":
+                _dom_min, _dom_max = int(r_pa), int(r_pa) + 200
+            elif modelo == "Hipergeometrico":
+                _dom_min = max(0, int(n_h) - (int(N_h) - int(R_h)))
+                _dom_max = min(int(n_h), int(R_h))
+            elif modelo == "Hiper-Pascal":
+                _dom_min, _dom_max = int(r_hp), int(N_hp) - int(R_hp) + int(r_hp)
+
+            if query_type in ("probability", "cdf_left", "cdf_right"):
+                r_val = st.number_input(
+                    f"Valor de {var}",
+                    min_value=_dom_min, max_value=_dom_max,
+                    value=max(_dom_min, min(_sc_r_val, _dom_max)),
+                    step=1,
+                )
+            elif query_type == "range":
+                col1, col2 = st.columns(2)
+                with col1:
+                    r_a = st.number_input("A (desde)", min_value=_dom_min, max_value=_dom_max,
+                                          value=max(_dom_min, min(_sc_a_val, _dom_max)), step=1)
+                with col2:
+                    r_b = st.number_input("B (hasta)", min_value=_dom_min, max_value=_dom_max,
+                                          value=max(_dom_min, min(_sc_b_val, _dom_max)), step=1)
+
+            st.markdown("---")
+            detail_level = render_detail_selector()
+
+            st.markdown("---")
+            st.subheader("Formula")
+            if modelo == "Binomial":
+                st.latex(r"P(r) = \binom{n}{r} \cdot p^r \cdot (1-p)^{n-r}")
+            elif modelo == "Poisson":
+                st.latex(r"P(r) = \frac{e^{-m} \cdot m^r}{r!}")
+            elif modelo == "Pascal":
+                st.latex(r"P(n) = \binom{n-1}{r-1} \cdot p^r \cdot (1-p)^{n-r}")
+            elif modelo == "Hipergeometrico":
+                st.latex(r"P(r) = \frac{\binom{R}{r}\binom{N-R}{n-r}}{\binom{N}{n}}")
+            elif modelo == "Hiper-Pascal":
+                st.latex(r"P(n) = \frac{r}{n} \cdot \frac{\binom{R}{r}\binom{N-R}{n-r}}{\binom{N}{n}}")
+
+        else:  # Continuo — sidebar already rendered; add detail selector + formula here
+            st.markdown("---")
+            detail_level = render_detail_selector()
+            st.markdown("---")
+            st.subheader("Formula")
+            if cont_cfg and cont_cfg.get("model"):
+                try:
+                    st.latex(cont_cfg["model"].latex_formula())
+                except Exception:
+                    pass
+
+    # ================================================================
+    # MODO: Datos Agrupados
+    # ================================================================
+    elif app_mode == "Datos Agrupados":
+        dp_config = render_dp_sidebar()
         st.markdown("---")
-        st.subheader("Consulta")
-        query_type = st.selectbox("Tipo de consulta", _QUERY_LABELS, index=_sc_qt_index)
+        detail_level = render_detail_selector()
 
-        if query_type in ["P(r = valor)", "F(r) = P(VA <= valor)", "G(r) = P(VA >= valor)"]:
-            r_val = st.number_input("Valor de r", min_value=0, max_value=int(n), value=min(_sc_r, int(n)), step=1)
-        elif query_type == "P(A <= r <= B)":
-            col1, col2 = st.columns(2)
-            with col1:
-                r_a = st.number_input("A (desde)", min_value=0, max_value=int(n), value=min(_sc_a, int(n)), step=1)
-            with col2:
-                r_b = st.number_input("B (hasta)", min_value=0, max_value=int(n), value=min(_sc_b, int(n)), step=1)
-
-    st.markdown("---")
-    detail_level = render_detail_selector()
-
-    st.markdown("---")
-    st.subheader("Formula del modelo")
-    if modelo == "Binomial":
-        st.latex(r"P(r) = \binom{n}{r} \cdot p^r \cdot (1-p)^{n-r}")
-
-
-# --- Main content ---
-if modelo == "Binomial":
-    model = Binomial(n=int(n), p=p)
-
-    # Tabs
-    tab_calc, tab_chars, tab_table, tab_graphs = st.tabs([
-        "Calculo Paso a Paso", "Caracteristicas", "Tabla de Distribucion", "Graficos",
-    ])
-
-    # Tab 1: Calculo paso a paso
-    with tab_calc:
-        if query_type == "P(r = valor)":
-            st.subheader(f"P(r = {r_val}) para Binomial(n={int(n)}, p={p})")
-            result = model.probability(int(r_val))
-            render_calc_result(result, detail_level)
-
-        elif query_type == "F(r) = P(VA <= valor)":
-            st.subheader(f"F({r_val}) = P(VA <= {r_val}) para Binomial(n={int(n)}, p={p})")
-            result = model.cdf_left(int(r_val))
-            render_calc_result(result, detail_level)
-
-        elif query_type == "G(r) = P(VA >= valor)":
-            st.subheader(f"G({r_val}) = P(VA >= {r_val}) para Binomial(n={int(n)}, p={p})")
-            result = model.cdf_right(int(r_val))
-            render_calc_result(result, detail_level)
-
-        elif query_type == "P(A <= r <= B)":
-            st.subheader(f"P({r_a} <= r <= {r_b}) para Binomial(n={int(n)}, p={p})")
-            f_b = model.cdf_left(int(r_b))
-            f_a_minus_1 = model.cdf_left(int(r_a) - 1) if r_a > 0 else None
-            prob_range = f_b.final_value - (f_a_minus_1.final_value if f_a_minus_1 else 0)
-
-            st.markdown(f"**P({r_a} <= r <= {r_b}) = F({r_b}) - F({int(r_a)-1})**")
-            st.latex(rf"P({r_a} \leq r \leq {r_b}) = F({r_b}) - F({int(r_a)-1}) = {format_number(f_b.final_value)} - {format_number(f_a_minus_1.final_value if f_a_minus_1 else 0)} = {format_number(prob_range)}")
-
-            with st.expander("Detalle F(B)"):
-                render_calc_result(f_b, detail_level)
-            if f_a_minus_1:
-                with st.expander("Detalle F(A-1)"):
-                    render_calc_result(f_a_minus_1, detail_level)
-
-            st.success(f"**Resultado:** P({r_a} <= r <= {r_b}) = {format_number(prob_range)}")
-
-        elif query_type == "Analisis completo":
-            st.subheader(f"Analisis completo - Binomial(n={int(n)}, p={p})")
-            st.markdown("Todas las probabilidades puntuales:")
-            d_min, d_max = model.domain()
-            for r in range(d_min, d_max + 1):
-                pv = model.probability_value(r)
-                if pv > 1e-10:
-                    with st.expander(f"P(r={r}) = {format_number(pv, 6)}"):
-                        result = model.probability(r)
-                        render_calc_result(result, detail_level)
-
-    # Tab 2: Caracteristicas
-    with tab_chars:
-        st.subheader(f"Caracteristicas - Binomial(n={int(n)}, p={p})")
-        chars = model.all_characteristics()
-        render_summary(chars, detail_level)
-
-        # Expectativa parcial
+    # ================================================================
+    # MODO: Probabilidad
+    # ================================================================
+    else:
+        prob_config = render_probability_sidebar()
         st.markdown("---")
-        st.subheader("Expectativa Parcial Izquierda")
-        r_h = st.number_input("Valor de r para H(r)", min_value=0, max_value=int(n), value=int(n*p), step=1, key="h_r")
-        h_result = model.partial_expectation_left(int(r_h))
-        render_calc_result(h_result, detail_level)
+        detail_level = render_detail_selector()
 
-    # Tab 3: Tabla
-    with tab_table:
-        st.subheader(f"Tabla de Distribucion - Binomial(n={int(n)}, p={p})")
-        table_data = model.full_table()
-        render_table(table_data)
 
-    # Tab 4: Graficos
-    with tab_graphs:
-        st.subheader(f"Graficos - Binomial(n={int(n)}, p={p})")
-        table_data = model.full_table()
-        highlight = int(r_val) if query_type in ["P(r = valor)", "F(r) = P(VA <= valor)", "G(r) = P(VA >= valor)"] else None
-        render_graphs(table_data, f"Binomial(n={int(n)}, p={p})", highlight_r=highlight)
+# ---------------------------------------------------------------------------
+# Contenido principal — Datos Agrupados
+# ---------------------------------------------------------------------------
+if app_mode == "Datos Agrupados":
+    st.subheader("Procesamiento de Datos Agrupados — Tema I")
+    render_dp_main(
+        dp_config["gd"],
+        dp_config["query"],
+        dp_config["qparams"],
+        detail_level,
+    )
+    st.stop()
+
+# ---------------------------------------------------------------------------
+# Contenido principal — Probabilidad
+# ---------------------------------------------------------------------------
+if app_mode == "Probabilidad":
+    st.subheader("Teoria de la Probabilidad")
+    render_probability_main(prob_config, detail_level)
+    st.stop()
+
+
+# ---------------------------------------------------------------------------
+# Contenido principal — Modelos Continuos
+# ---------------------------------------------------------------------------
+if app_mode == "Modelos de Probabilidad" and cont_cfg is not None:
+    render_continuous_main(cont_cfg, detail_level)
+    st.stop()
+
+
+# ---------------------------------------------------------------------------
+# Instanciar modelo (solo llega aqui en modo Modelos de Probabilidad DISCRETO)
+# ---------------------------------------------------------------------------
+try:
+    if modelo == "Binomial":
+        model = Binomial(n=int(n), p=p)
+        title_params = f"n={int(n)}, p={p}"
+    elif modelo == "Poisson":
+        model = Poisson(m=m)
+        title_params = f"m={m}"
+    elif modelo == "Pascal":
+        model = Pascal(r=int(r_pa), p=p)
+        title_params = f"r={int(r_pa)}, p={p}"
+    elif modelo == "Hipergeometrico":
+        model = Hipergeometrico(N=int(N_h), R=int(R_h), n=int(n_h))
+        title_params = f"N={int(N_h)}, R={int(R_h)}, n={int(n_h)}"
+    elif modelo == "Hiper-Pascal":
+        model = HiperPascal(r=int(r_hp), N=int(N_hp), R=int(R_hp))
+        title_params = f"r={int(r_hp)}, N={int(N_hp)}, R={int(R_hp)}"
+except ValueError as e:
+    st.error(f"Parametros invalidos: {e}")
+    st.stop()
+
+
+# ---------------------------------------------------------------------------
+# Tabs principales (Modelos de Probabilidad)
+# ---------------------------------------------------------------------------
+tab_calc, tab_chars, tab_table, tab_graphs = st.tabs([
+    "Calculo Paso a Paso", "Caracteristicas", "Tabla de Distribucion", "Graficos",
+])
+
+
+def _dispatch_query(model, query_type, title_params, detail_level):
+    """Renderiza el calculo en tab_calc segun query_type."""
+    d_min, d_max = model.domain()
+
+    if query_type == "probability":
+        st.subheader(f"P({var}={r_val}) — {modelo}({title_params})")
+        render_calc_result(model.probability(int(r_val)), detail_level)
+
+    elif query_type == "cdf_left":
+        st.subheader(f"F({r_val}) = P(VA ≤ {r_val}) — {modelo}({title_params})")
+        render_calc_result(model.cdf_left(int(r_val)), detail_level)
+
+    elif query_type == "cdf_right":
+        st.subheader(f"G({r_val}) = P(VA ≥ {r_val}) — {modelo}({title_params})")
+        render_calc_result(model.cdf_right(int(r_val)), detail_level)
+
+    elif query_type == "range":
+        a, b = int(r_a), int(r_b)
+        st.subheader(f"P({a} ≤ {var} ≤ {b}) — {modelo}({title_params})")
+        f_b_res = model.cdf_left(b)
+        f_a1_res = model.cdf_left(a - 1) if a > d_min else None
+        val_a1 = f_a1_res.final_value if f_a1_res else 0.0
+        prob_range = f_b_res.final_value - val_a1
+        st.latex(rf"P({a} \leq {var} \leq {b}) = F({b}) - F({a-1}) = "
+                 rf"{format_number(f_b_res.final_value)} - {format_number(val_a1)} = "
+                 rf"{format_number(prob_range)}")
+        with st.expander(f"Detalle F({b})"):
+            render_calc_result(f_b_res, detail_level)
+        if f_a1_res:
+            with st.expander(f"Detalle F({a-1})"):
+                render_calc_result(f_a1_res, detail_level)
+        st.success(f"P({a} ≤ {var} ≤ {b}) = {format_number(prob_range)}")
+
+    elif query_type == "full_analysis":
+        st.subheader(f"Probabilidades puntuales — {modelo}({title_params})")
+        for rv in range(d_min, d_max + 1):
+            pv = model.probability_value(rv)
+            if pv > 1e-10:
+                with st.expander(f"P({var}={rv}) = {format_number(pv, 6)}"):
+                    render_calc_result(model.probability(rv), detail_level)
+
+
+with tab_calc:
+    _dispatch_query(model, query_type, title_params, detail_level)
+
+with tab_chars:
+    st.subheader(f"Caracteristicas — {modelo}({title_params})")
+    chars = model.all_characteristics()
+    render_summary(chars, detail_level)
+    st.markdown("---")
+    st.subheader("Expectativa Parcial Izquierda H(·)")
+    d_min, d_max = model.domain()
+    default_h = max(d_min, min(int(model.mean().final_value), d_max))
+    r_h = st.number_input(
+        f"Valor de {var} para H({var})",
+        min_value=d_min, max_value=d_max, value=default_h, step=1, key="h_val",
+    )
+    render_calc_result(model.partial_expectation_left(int(r_h)), detail_level)
+
+with tab_table:
+    st.subheader(f"Tabla de Distribucion — {modelo}({title_params})")
+    render_table(model.full_table())
+
+with tab_graphs:
+    st.subheader(f"Graficos — {modelo}({title_params})")
+    highlight = int(r_val) if query_type in ("probability", "cdf_left", "cdf_right") else None
+    render_graphs(model.full_table(), f"{modelo}({title_params})", highlight_r=highlight)

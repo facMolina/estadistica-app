@@ -4,20 +4,52 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this project is
 
-A Python app that solves Statistics exercises (UADE - Ing. Sergio Anibal Dopazo) showing the **full step-by-step workings** of each calculation. Two phases:
+A Python app that solves Statistics exercises (UADE - Ing. Sergio Anibal Dopazo) showing the **full step-by-step workings** of each calculation. Two modes:
 
-1. **Phase 1 - CLI** (`main.py`, pending): User describes the problem in natural text → Claude API interprets it → identifies the probability model → extracts parameters → launches the web interface.
-2. **Phase 2 - Web** (`app_streamlit.py`): Streamlit interface with 4 tabs: step-by-step calculation, model characteristics, full distribution table, interactive Plotly graphs.
+1. **Web** (`app_streamlit.py`): Streamlit interface with sidebar NL interpreter (regex-based, no API key), 4 tabs: step-by-step calculation, model characteristics, full distribution table, interactive Plotly graphs.
+2. **CLI** (`main.py`): User describes problem in natural text → Claude API interprets it → writes session_config.json → launches Streamlit with pre-populated parameters.
 
-## Running the app
+The **web interface is fully functional without an API key**. The NL interpreter in the sidebar uses `interpreter/nl_parser.py` (regex/keywords, no external dependencies). The CLI mode requires `ANTHROPIC_API_KEY` in `.env`.
 
-```bash
-# From APP/
-source .venv/bin/activate          # Python 3.13.6 virtualenv already created
-streamlit run app_streamlit.py     # Opens at http://localhost:8501
+## Running the app locally
+
+Requires **Python 3.9+**. All commands run from `APP/`.
+
+### Windows
+
+```bat
+:: Install dependencies (once)
+C:\Python314\python -m pip install -r requirements.txt
+
+:: Web UI — no API key needed, works offline
+C:\Python314\python -m streamlit run app_streamlit.py
+
+:: CLI mode — requires ANTHROPIC_API_KEY in APP/.env
+C:\Python314\python main.py
+C:\Python314\python main.py --streamlit
 ```
 
-The `.env` file (pending creation) must contain `ANTHROPIC_API_KEY` for the CLI phase.
+### macOS / Linux
+
+```bash
+# Create and activate virtual environment (once)
+python3 -m venv .venv
+source .venv/bin/activate
+
+# Install dependencies (once)
+pip install -r requirements.txt
+
+# Web UI — no API key needed, works offline
+python -m streamlit run app_streamlit.py
+
+# CLI mode — requires ANTHROPIC_API_KEY in APP/.env
+python main.py
+python main.py --streamlit
+```
+
+App opens at `http://localhost:8501`.
+
+**Note (Windows):** the `.venv` in `APP/` was originally created on macOS — on Windows install packages directly into system Python (`C:\Python314\python`) instead of using the venv.
 
 ## Architecture: the step-by-step engine
 
@@ -40,6 +72,18 @@ StepBuilder → add_step(level_min=N) → build() → CalcResult
 
 **`CalcResult`**: holds the step tree + `final_value` (float) + `final_latex`. The `get_steps_for_level(n)` method filters the tree recursively.
 
+## Adding a new continuous model
+
+1. Create `models/continuous/my_model.py` inheriting `ContinuousBase` from `models/continuous/_base.py`.
+2. Store `self._dist = scipy.stats.xxx(...)` for numerical CDF/PPF.
+3. Implement: `name()`, `params_dict()`, `domain()`, `latex_formula()`, `density_value(x)`, `density(x)`, `cdf_left(x)`, `mean()`, `variance()`, `mode()`, `median()`, `skewness()`, `kurtosis()`. Override `display_domain()` if the default ±4σ isn't appropriate.
+4. `cdf_right`, `std_dev`, `cv`, `partial_expectation_left`, `fractile` are provided by `ContinuousBase` — override only if you need a closed-form version.
+5. Register in:
+   - `ui/components/continuous_ui.py` → `CONTINUOUS_MODELS` list, `_instantiate()`, sidebar inputs
+   - `config/model_catalog.py` → `IMPLEMENTED_MODELS`
+
+**Reference implementation**: `models/continuous/normal.py`. All 9 continuous models are implemented.
+
 ## Adding a new discrete model
 
 1. Create `models/discrete/my_model.py` inheriting `DiscreteModel` from `models/base.py`.
@@ -51,9 +95,13 @@ StepBuilder → add_step(level_min=N) → build() → CalcResult
    - `partial_expectation_left(r)` → return `CalcResult`
    - `latex_formula()` → raw LaTeX string
 3. `full_table()` and `all_characteristics()` are already implemented in the base class using `probability_value` — no need to override.
-4. Register the model in `app_streamlit.py` sidebar selector and instantiation block.
+4. Register the model in:
+   - `app_streamlit.py` sidebar selector and instantiation block
+   - `config/model_catalog.py` → `IMPLEMENTED_MODELS` set
+   - `interpreter/nl_parser.py` → `MODELO_PATTERNS`, `PARAM_PATTERNS`, `REQUIRED_PARAMS`, optionally `CATHEDRA_PATTERNS`
+   - This file (`CLAUDE.md`) → update parser section and pending sprints table
 
-**Reference implementation**: `models/discrete/binomial.py` — the only completed model, use it as the template for all others.
+**Reference implementation**: `models/discrete/binomial.py` — use it as the template. Completed discrete models: Binomial, Poisson, Pascal, Hipergeometrico, Hiper-Pascal.
 
 ## Useful utilities in `calculation/`
 
@@ -67,28 +115,43 @@ StepBuilder → add_step(level_min=N) → build() → CalcResult
 - `ui/components/summary_panel.py`: renders `all_characteristics()` dict.
 - `ui/components/graph_panel.py`: 3 Plotly charts — stem plot for P(r), step functions for F(r) and G(r).
 - `ui/components/table_panel.py`: DataFrame from `full_table()` + CSV download.
-- `display/graph_builder.py`: `build_probability_polygon()` and `build_cdf_plot()` — Plotly figure factories.
+- `ui/components/data_processing_ui.py`: Datos Agrupados mode — `st.data_editor` for Li/Ls/fi table, calculates and displays grouped stats (mean, variance, CV, median, fractile), histogram + ogive via Plotly.
+- `ui/components/probability_ui.py`: Probabilidad mode — two sub-modes: "Operaciones con dos eventos" (P(A), P(B), union, intersection, conditional, independence) and "Bayes / Probabilidad Total" (`st.data_editor` for Hipotesis/P(Hi)/P(E|Hi) table, full Bayes theorem step-by-step).
+- `ui/components/continuous_ui.py`: Continuous models — `render_continuous_sidebar(sc)` returns `{model, model_name, title_params, query_type, query_params, model_error}`; `render_continuous_main(cfg, detail_level)` renders 3 tabs (Cálculo, Características, Gráfico). Supports: density, cdf_left, cdf_right, range, fractile queries.
+- `display/graph_builder.py`: `build_probability_polygon()`, `build_cdf_plot()`, `build_histogram()`, `build_ogiva()`, `build_density_plot()` — Plotly figure factories. `build_density_plot(model, title, query_type, x_val, x_a, x_b)` shades the appropriate probability area.
+- `probability/basic.py`: `CalcResult`-returning functions for intersection, union, complement, conditional, independence check.
+- `probability/bayes.py`: `BayesCalc` class — `solve()`, `posteriors()`, `prob_evidence()`, `full_table()`.
 
-## Pending sprints (in order)
+## Sprints status
 
-| Sprint | Content |
-|--------|---------|
-| **5** | Discrete models: Pascal, Hipergeometrico, Hiper-Pascal, Poisson, Multinomial |
-| **6** | Continuous models: Normal, Log-Normal, Exponential, Gamma/Erlang, Weibull, Uniform, Gumbel Min/Max, Pareto |
-| **7** | Approximations engine + TCL (Hyper→Binom, Binom→Normal, Binom→Poisson, Poisson→Normal, Gamma→Normal) |
-| **8** | CLI with Claude API (`main.py`, `interpreter/`) |
-| **9** | Guide mode: parse "tema X ej Y" → read PDF → send to Claude API |
-| **2/3** | Topic I (Data Processing) and Topic II (Basic Probability) — deprioritized |
+| Sprint | Content | Status |
+|--------|---------|--------|
+| **5** | Discrete models: Poisson, Pascal, Hipergeometrico, Hiper-Pascal | **DONE** (2026-04-15) |
+| **2** | Topic I: Grouped data statistics (mean, variance, CV, median, fractile, ogive) | **DONE** (2026-04-14) |
+| **3** | Topic II: Classical probability, conditional, Bayes | **DONE** (2026-04-15) |
+| **6** | Continuous models: Normal, Log-Normal, Exponential, Gamma/Erlang, Weibull, Uniform, Gumbel Min/Max, Pareto | **DONE** (2026-04-15) |
+| **7** | Approximations engine + TCL | pending |
+| **9** | Guide mode: parse "tema X ej Y" → read PDF → NL parser | pending |
+| **10** | Polish, Multinomial, full test suite | pending |
 
 ## Model formulas quick reference
 
-**Discrete (pending):**
+**Discrete (implemented):**
+- Binomial: `P(r) = C(n,r)*p^r*(1-p)^(n-r)` | E=np | V=np(1-p)
 - Pascal: `P(n) = C(n-1,r-1)*p^r*(1-p)^(n-r)` | E=r/p | V=r(1-p)/p²
 - Hipergeometrico: `P(r) = C(R,r)*C(N-R,n-r)/C(N,n)` | E=n*R/N | domain: max(0,n-(N-R)) ≤ r ≤ min(n,R)
 - Hiper-Pascal: `P(n) = (r/n)*P_h(r/n;N;R)` | E=r*(N+1)/(R+1)
-- Poisson: `P(r) = e^(-m)*m^r/r!` | E=V=m | use MAX_SUMMATION_TERMS for infinite domain
+- Poisson: `P(r) = e^(-m)*m^r/r!` | E=V=m | uses MAX_SUMMATION_TERMS for infinite domain
 
-**Continuous (pending):** Normal (Z-standardization), Log-Normal, Exponential, Gamma/Erlang, Weibull, Gumbel Min/Max, Pareto, Uniform. Use `scipy.stats` for CDFs; show the transformation step-by-step.
+**Continuous (implemented — Sprint 6):**
+- Normal(mu, sigma): Z=(x-μ)/σ → Φ(Z); E=μ, V=σ², Mo=Me=μ, As=0, Ku=3
+- LogNormal(m, D): Y=ln(x), Z=(Y-m)/D; E=e^(m+D²/2), Mo=e^(m-D²), Me=e^m
+- Exponencial(lam): F=1-e^(-λx); E=1/λ, V=1/λ², As=2, Ku=9
+- Gamma(r, lam): F=incomplete gamma; E=r/λ, V=r/λ², As=2/√r, Ku=3+6/r
+- Weibull(beta, omega): F=1-e^(-(x/β)^ω); E=β·Γ(1+1/ω)
+- GumbelMax/GumbelMin(beta, theta): F=e^(-e^(-z)) / F=1-e^(-e^z); E=θ±β·C (C=Euler)
+- Pareto(theta, b): F=1-(θ/x)^b for x≥θ; E=bθ/(b-1) for b>1
+- Uniforme(a, b): F=(x-a)/(b-a); E=(a+b)/2, V=(b-a)²/12
 
 ## Verification: known correct answers from the guide
 
@@ -98,3 +161,81 @@ When implementing models, verify against these:
 - **Normal**: P(x<24000)=94.52%, P(x>840)=2.28%
 - **Poisson**: P(r=0/m=5)=0.0067, Fg(20/4;0.3)=Gpo(4/6)=0.8488
 - **Gamma**: P(x<150)=44.22%
+
+## Parser de lenguaje natural (`interpreter/nl_parser.py`)
+
+Parser regex/keywords para interpretar texto estadístico en texto libre → dict estructurado.
+Sin dependencias externas ni API key. Se itera: cada modelo nuevo o ejemplo que "rompa" el flujo
+debe agregar una regla acá y en el parser.
+
+### Detección de modo (antes de buscar modelo)
+
+El parser detecta en qué modo debe operar antes de buscar el modelo de distribución:
+
+| Modo detectado | Señales |
+|----------------|---------|
+| **Datos Agrupados** | keywords: `ogiva`, `histograma`, `datos agrupados`, `fractil`, `cuartil`, `marca de clase`; o bien ≥3 patrones `X-Y` en el texto |
+| **Probabilidad** | keywords fuertes: `bayes`, `a priori`, `a posteriori`, `probabilidad total`, `mutuamente excluyentes`, `complemento de`; o notación `P(A\|B)` / `P(A)=valor`; o ≥2 señales medias (`complemento`, `independientes`, `urna`, `bolillas`, `eventos`) |
+| **Modelos de Probabilidad** | cualquier keyword de `MODELO_PATTERNS` o notación cátedra |
+
+Si el parser detecta modo Datos Agrupados o Probabilidad, `streamlit_interpreter.py` llama a `apply_sc_to_session()` que cambia `st.session_state["app_mode"]` y pre-rellena los widgets correspondientes antes del `st.rerun()`.
+
+### Cómo agregar soporte para un modelo nuevo
+
+1. Agregar keywords en `MODELO_PATTERNS` dentro de `nl_parser.py`
+2. Agregar patrones de extracción de params en `PARAM_PATTERNS`
+3. Agregar params requeridos + preguntas de follow-up en `REQUIRED_PARAMS`
+4. Si el modelo tiene notación cátedra propia (como `Fb()/Gb()/Pb()` para Binomial), agregar regex en `CATHEDRA_PATTERNS`
+5. Testear con ejemplos reales de la Guia de ejercicios
+
+### Modelos soportados actualmente
+
+| Modelo | Keywords principales | Notación cátedra |
+|--------|---------------------|-----------------|
+| Binomial | `binomial`, `bernoulli`, `moneda`, `dado`, `ensayos independientes`, `con reposición`, `fallada/fallado`, `avería` | `Fb(r/n;p)`, `Gb(r/n;p)`, `Pb(r/n;p)` |
+| Poisson | `poisson`, `llegadas`, `tasa de`, `lambda`, `m=N` | `Fpo(r/m)`, `Gpo(r/m)`, `Ppo(r/m)` |
+| Pascal | `pascal`, `binomial negativa`, `hasta obtener`, `r-ésimo éxito` | `Fpa(n/r;p)`, `Gpa(n/r;p)`, `Ppa(n/r;p)` |
+| Hipergeométrico | `hipergeometrico`, `sin reposición`, `lote`, `partida` | `Fh(r/n;N;R)`, `Gh(r/n;N;R)`, `Ph(r/n;N;R)` |
+| Hiper-Pascal | `hiper-pascal` | `Fhpa(n/r;N;R)`, `Ghpa(n/r;N;R)`, `Phpa(n/r;N;R)` |
+
+**Nota cátedra Pascal**: `Fpa(n/r;p)` — el primer número es el query (ensayos), el segundo es el param r (éxitos buscados).
+
+### Ejemplos validados contra Tema III de la Guía de ejercicios
+
+```
+# Notación cátedra (bypass completo)
+Fb(4/12;0.45)                              → cdf_left,  n=12, p=0.45, r=4
+Gb(3/10;0.25)                              → cdf_right, n=10, p=0.25, r=3
+Fb(4/8;0.60)                               → cdf_left,  n=8,  p=0.60, r=4
+Gb(10/14;0.75)                             → cdf_right, n=14, p=0.75, r=10
+
+# Parámetros explícitos
+Binomial n=12 p=0.45, calcular F(4)        → cdf_left,  n=12, p=0.45, r=4
+15 ensayos con p=0.4, acumulada hasta 6    → cdf_left,  n=15, p=0.4,  r=6
+
+# Porcentajes
+Un tirador tiene 80% de aciertos. En 8 disparos, exactamente 6   → probability, n=8,  p=0.80, r=6
+Binomial 10 pruebas con 30% de exito, exactamente 4              → probability, n=10, p=0.30, r=4
+Proceso con 1% de defectuosas, muestra de 10, encontrar alguna   → cdf_right,  n=10, p=0.01, r=1
+
+# Lenguaje coloquial
+Se lanza una moneda 15 veces, exactamente 4 caras                → probability, n=15, p=0.5, r=4
+Moneda 20 veces, al menos 8 caras                                → cdf_right,  n=20, p=0.5, r=8
+Proceso con 10% defectuosas, muestra de 15, 2 o menos           → cdf_left,   n=15, p=0.1, r=2
+```
+
+### Patrones clave en el parser (no obvios)
+- `"alguna"` → `cdf_right` con `r=1` (al menos una)
+- `"hasta N"` → `cdf_left` con `r=N`
+- `"N o menos"` → `cdf_left` con `r=N`; `"N o más"` → `cdf_right` con `r=N`
+- `"N%"` → `p = N/100` (solo si el texto tiene `%` y p >= 1)
+- Moneda → `p=0.5` automático; Dado → `p=1/6` automático
+- `"disparos"`, `"unidades"`, `"latas"`, `"piezas"` → todos mapean a `n`
+- `"fallada/fallado/fallo"` → detecta Binomial (defectos/fallas)
+- 3+ patrones `X-Y` en el texto → modo Datos Agrupados (sin necesitar keyword explícita)
+- `"bayes"`, `"a priori"`, `"probabilidad total"` → modo Probabilidad (Bayes)
+- 2+ señales de evento (P(A|B), complemento, urn, etc.) → modo Probabilidad (dos eventos)
+
+### Ejemplos que rompen el flujo (a corregir con reglas nuevas)
+
+_Agregar acá cuando se encuentren durante el desarrollo._
