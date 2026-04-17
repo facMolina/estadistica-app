@@ -1,6 +1,6 @@
 # Contexto del Proyecto: Calculadora de Estadistica con Paso a Paso
 
-Ultima actualizacion: 2026-04-15 (Sprint 6 completado)
+Ultima actualizacion: 2026-04-17 (Problemas compuestos + expansiones del parser NL)
 
 ---
 
@@ -10,9 +10,10 @@ Una aplicacion en Python/Streamlit para resolver ejercicios de Estadistica Gener
 
 1. **Modelos de Probabilidad**: selector Discreto/Continuo. Discretos (Binomial, Poisson, Pascal, Hipergeometrico, Hiper-Pascal): 4 tabs — calculo, caracteristicas, tabla completa, graficos. Continuos (Normal, Log-Normal, Exponencial, Gamma, Weibull, Gumbel Max/Min, Pareto, Uniforme): 3 tabs — calculo, caracteristicas, curva de densidad sombreada.
 2. **Datos Agrupados**: ingreso de intervalos y frecuencias, calcula media, varianza, CV, mediana, fractiles, ogiva e histograma.
-3. **Probabilidad**: dos sub-modos — operaciones con dos eventos (union, interseccion, complemento, condicional, independencia) y Bayes/Probabilidad Total con tabla completa.
+3. **Probabilidad**: dos sub-modos — operaciones con dos eventos (solver genérico `solve_two_events()` que deriva P(A), P(B), P(A∩B) desde cualquier combinación conocida) y Bayes/Probabilidad Total con tabla completa.
+4. **Problemas Compuestos** (render especial, no es un modo del selector): dispara automáticamente cuando el parser NL detecta distribuciones encadenadas — Hipergeométrico→Binomial (cajas) y Pascal condicional. Renderiza cada paso con su propio `CalcResult` paso a paso.
 
-En los tres modos hay un **intérprete de lenguaje natural** en el sidebar: el usuario describe el problema en texto libre, el parser lo identifica y auto-rellena los widgets. **Sin API key, funciona offline.**
+En los tres modos hay un **intérprete de lenguaje natural** en el sidebar: el usuario describe el problema en texto libre, el parser lo identifica y auto-rellena los widgets. **Sin API key, funciona offline.** El parser también detecta y extrae probabilidades en lenguaje natural español ("probabilidad de producir X es de Y%") y datos de Bayes (priors/likelihoods) desde texto libre.
 
 ---
 
@@ -111,13 +112,15 @@ Sidebar Streamlit
  [Expander "Interpretar problema"] ← disponible en los 3 modos
         |
  NLParser (interpreter/nl_parser.py) — regex/keywords, sin API key
-   Paso 0: notacion catedra (bypass directo) → modelo + params + query
-   Paso 1: detectar modo (Datos Agrupados / Probabilidad / Modelo)
-   Paso 2: detectar modelo discreto (Binomial/Poisson/Pascal/etc.)
-   Paso 3: extraer parametros (n, p, m, N, R...)
-   Paso 4: detectar consulta (cdf_left/right/probability/range)
+   Paso 0:   notacion catedra (bypass directo) → modelo + params + query
+   Paso 0.5: problemas compuestos (_detect_compound) → status="compound"
+   Paso 1:   detectar modo (Datos Agrupados / Probabilidad / Modelo)
+   Paso 2:   detectar modelo discreto o continuo (Binomial/Poisson/Pascal/Normal/etc.)
+   Paso 3:   extraer parametros (n, p, m, N, R, mu, sigma, lambda...)
+   Paso 4:   detectar consulta (cdf_left/right/probability/range)
         |
    "complete" → apply_sc_to_session() → cambia modo + pre-rellena widgets → st.rerun()
+   "compound" → solve_compound(config) → render_compound_main() con steps
    "need_more_info" → muestra pregunta de follow-up → usuario responde
         |
  Motor de calculo → CalcResult (arbol de Steps con detail_level_min)
@@ -173,16 +176,19 @@ APP/
 |   |-- step_engine.py          # StepBuilder
 |   |-- combinatorics.py        # comb(), comb_with_steps()
 |   |-- statistics_common.py    # F, G, H, J genericas; format_number()
+|   |-- compound_solver.py      # HECHO — solve_hiper_binomial, solve_pascal_conditional
 |
 |-- data_processing/
-|   |-- grouped_data.py         # GroupedData: media, varianza, mediana, fractiles, F(x)
+|   |-- grouped_data.py         # GroupedData: media, varianza, mediana, fractiles, F(x), tabla cátedra
 |
 |-- probability/
-|   |-- basic.py                # calc_intersection/union/complement/conditional/independence
-|   |-- bayes.py                # BayesCalc: solve(), posteriors(), full_table()
+|   |-- basic.py                # calc_intersection/union/complement/conditional/independence + solve_two_events()
+|   |-- bayes.py                # BayesCalc: solve(), posteriors(), prob_evidence(), full_table()
 |
 |-- display/
 |   |-- graph_builder.py        # Plotly: poligono, CDF, histograma, ogiva, densidad continua
+|   |-- latex_renderer.py
+|   |-- table_builder.py
 |
 |-- ui/
 |   |-- components/
@@ -192,8 +198,9 @@ APP/
 |   |   |-- table_panel.py      # Tabla distribucion + CSV
 |   |   |-- summary_panel.py    # Caracteristicas del modelo
 |   |   |-- data_processing_ui.py  # Datos Agrupados: editor tabla + calculos + graficos
-|   |   |-- probability_ui.py   # Probabilidad: dos eventos + Bayes
+|   |   |-- probability_ui.py   # Probabilidad: dos eventos (solver genérico) + Bayes
 |   |   |-- continuous_ui.py    # Modelos continuos: sidebar + main (tabs calc/chars/grafico)
+|   |   |-- compound_ui.py      # HECHO — render_compound_main() para problemas compuestos
 |
 |-- approximations/             # PENDIENTE (Sprint 7)
 |-- guide_index/                # PENDIENTE (Sprint 9)
@@ -211,7 +218,8 @@ APP/
 | **5** | Modelos discretos: Poisson, Pascal, Hipergeometrico, Hiper-Pascal | HECHO (2026-04-15) |
 | **2** | Datos Agrupados (Tema I): media, varianza, CV, mediana, fractiles, histograma, ogiva | HECHO (2026-04-15) |
 | **3** | Probabilidad (Tema II): dos eventos + Bayes/Prob. Total | HECHO (2026-04-15) |
-| **6** | Modelos continuos: Normal, Log-Normal, Exponencial, Gamma/Erlang, Weibull, Gumbel, Pareto, Uniforme | **HECHO (2026-04-15)** |
+| **6** | Modelos continuos: Normal, Log-Normal, Exponencial, Gamma/Erlang, Weibull, Gumbel, Pareto, Uniforme | HECHO (2026-04-15) |
+| **—** | Problemas Compuestos (Hipergeometrico+Binomial, Pascal condicional) | **HECHO (2026-04-17)** |
 | **7** | Motor de aproximaciones + TCL | pendiente |
 | **9** | Modo guia: "tema X ej Y" → leer PDF → NL parser | pendiente |
 | **10** | Pulido, Multinomial, test suite completo | pendiente |
@@ -256,14 +264,21 @@ Flujo: `StepBuilder.add_step(level_min=N)` → `build()` → `CalcResult` → `g
 
 El parser opera en pasos ordenados:
 1. **Bypass catedra**: si hay `Fb(r/n;p)`, `Gpo(r/m)`, `Fh(r/n;N;R)`, etc. → parsea directo
-2. **Detectar modo**: Datos Agrupados (keywords o ≥3 patrones `X-Y`) / Probabilidad (bayes, a priori, P(A|B), mutuamente excluyentes, etc.) / Modelos de Probabilidad
-3. **Detectar modelo**: keywords en `MODELO_PATTERNS`
-4. **Extraer params**: regex en `PARAM_PATTERNS` + `EXTRA_PARAM_PATTERNS`
-5. **Detectar consulta**: cdf_left / cdf_right / probability / range / full_analysis
+2. **Problemas compuestos** (`_detect_compound`): detecta cadenas de distribuciones y retorna `status="compound"` con config. Tipos actuales: `hiper_binomial` (muestreo por caja + conteo de rechazos) y `pascal_conditional` (P(N>x | N>y))
+3. **Detectar modo**: Datos Agrupados (keywords o ≥3 patrones `X-Y`) / Probabilidad (bayes, a priori, P(A|B), mutuamente excluyentes, etc.) / Modelos de Probabilidad
+4. **Detectar modelo**: keywords en `MODELO_PATTERNS`
+5. **Extraer params**: regex en `PARAM_PATTERNS` + `EXTRA_PARAM_PATTERNS`
+6. **Detectar consulta**: cdf_left / cdf_right / probability / range / full_analysis
 
 Multi-turno: si faltan datos, retorna `need_more_info` con pregunta. El turno siguiente combina el contexto previo.
 
-Al recibir "complete": `apply_sc_to_session(sc, st.session_state)` cambia el modo y pre-rellena widgets, luego `st.rerun()`.
+Al recibir `"complete"`: `apply_sc_to_session(sc, st.session_state)` cambia el modo y pre-rellena widgets, luego `st.rerun()`.
+
+Al recibir `"compound"`: el solver `solve_compound(config)` arma la solución (lista de pasos, cada uno con su `CalcResult`) y `render_compound_main()` la renderiza.
+
+### Extracción NL avanzada (dentro del modo Probabilidad)
+- `_extract_prob_natural_language()`: detecta múltiples patrones `"probabilidad de X es de Y%"` y los clasifica en marginal, `ambas` → P(A∩B), `nada/ninguna` → P(A'∩B'). Auto-rellena P(A), P(B), P(A∩B), P(A'∩B') en los widgets.
+- `_extract_bayes_data()`: si hay 2N porcentajes o 2N decimales en el texto, asume primera mitad = priors y segunda = likelihoods. Intenta extraer labels desde palabras capitalizadas del texto.
 
 ---
 
@@ -285,3 +300,5 @@ Al recibir "complete": `apply_sc_to_session(sc, st.session_state)` cambia el mod
 4. **`apply_sc_to_session()`**: centraliza el switch de modo + pre-relleno de widgets desde el NL interpreter.
 5. **Modo "Probabilidad" sin calculadora de parametros**: el interprete NL puede pre-cargar datos (priors/likelihoods), pero el usuario siempre puede editar la tabla directamente.
 6. **Sprint 6 continuo**: `ContinuousBase` en `models/continuous/_base.py` provee defaults para `cdf_right`, `std_dev`, `cv`, `partial_expectation_left` (scipy quad), `fractile` (ppf). Cada modelo guarda `self._dist` scipy. La UI tiene 3 tabs (Calculo, Caracteristicas, Grafico). `build_density_plot()` en `graph_builder.py` sombrea el area segun query_type. El sidebar Modelos de Probabilidad tiene toggle Discreto/Continuo.
+7. **Problemas compuestos desacoplados**: el parser (`_detect_compound()` en `nl_parser.py`) solo retorna config; el solver (`compound_solver.py`) no depende del parser. Para agregar un tipo nuevo: implementar `solve_<name>()`, agregar branch en `solve_compound()`, y agregar `_try_<name>()` al parser. La UI (`compound_ui.py`) es genérica — cualquier solver que devuelva `{title, description?, steps: [{num, title, description, notation, calc_result, result_label, result_value}], conditional?, final_value}` se renderiza sin tocar UI.
+8. **`solve_two_events()` generico**: `probability/basic.py` expone un solver iterativo que acepta cualquier combinación de datos conocidos (P(A), P(B), P(A∩B), P(A∪B), P(A'∩B'), P(A|B), P(B|A)) y deriva el resto paso a paso. El UI `probability_ui.py` usa multiselect para que el usuario elija qué datos aporta.
