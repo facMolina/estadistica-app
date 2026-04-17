@@ -24,7 +24,7 @@ from calculation.statistics_common import format_number
 _SAMPLE_DF = pd.DataFrame({
     "Li": [0.0, 2.0, 4.0, 6.0, 8.0, 10.0, 12.0],
     "Ls": [2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0],
-    "fi": [5,   20,  30,  20,  15,   7,    3   ],
+    "fai": [5,   20,  30,  20,  15,   7,    3   ],
 })
 
 _QUERY_OPTIONS = [
@@ -61,8 +61,8 @@ def render_dp_sidebar() -> Dict[str, Any]:
         column_config={
             "Li": st.column_config.NumberColumn("Li", format="%.2f", help="Límite inferior"),
             "Ls": st.column_config.NumberColumn("Ls", format="%.2f", help="Límite superior"),
-            "fi": st.column_config.NumberColumn("fi", min_value=0, format="%d",
-                                                 help="Frecuencia absoluta"),
+            "fai": st.column_config.NumberColumn("fai", min_value=0, format="%d",
+                                                  help="Frecuencia absoluta"),
         },
         key="dp_editor",
     )
@@ -72,8 +72,8 @@ def render_dp_sidebar() -> Dict[str, Any]:
     gd: Optional[GroupedData] = None
     error_msg: Optional[str] = None
     try:
-        df_clean = df_edited.dropna(subset=["Li", "Ls", "fi"])
-        df_clean = df_clean[df_clean["fi"] >= 0]
+        df_clean = df_edited.dropna(subset=["Li", "Ls", "fai"])
+        df_clean = df_clean[df_clean["fai"] >= 0]
         if len(df_clean) < 1:
             error_msg = "Ingresá al menos un intervalo con frecuencia."
         else:
@@ -81,7 +81,7 @@ def render_dp_sidebar() -> Dict[str, Any]:
                 df_clean["Li"].astype(float).tolist(),
                 df_clean["Ls"].astype(float).tolist(),
             ))
-            frequencies = df_clean["fi"].astype(int).tolist()
+            frequencies = df_clean["fai"].astype(int).tolist()
             for idx, (a, b) in enumerate(intervals):
                 if b <= a:
                     error_msg = f"Intervalo {idx+1}: Ls debe ser > Li."
@@ -243,13 +243,17 @@ def _render_freq_table(gd: GroupedData) -> None:
     df = pd.DataFrame(rows)
 
     # Formatear columnas flotantes para display
-    float_cols = ["xi", "fri", "Fi", "Gi", "fi·xi", "fi·xi²"]
+    float_cols = ["Li", "Ls", "Ci", "fi", "Fi", "Gi", "Ci·fai", "(Ci−x̄)²·fai"]
+    int_cols = ["fai", "Fai", "Gai"]
     df_display = df.copy()
     for col in float_cols:
         if col in df_display.columns:
             df_display[col] = df_display[col].map(
-                lambda v: f"{v:.4f}" if isinstance(v, float) else v
+                lambda v: format_number(v) if isinstance(v, float) else v
             )
+    for col in int_cols:
+        if col in df_display.columns:
+            df_display[col] = df_display[col].astype(int)
 
     st.dataframe(df_display, use_container_width=True, hide_index=True)
 
@@ -262,6 +266,141 @@ def _render_freq_table(gd: GroupedData) -> None:
         file_name="tabla_frecuencias.csv",
         mime="text/csv",
     )
+
+    # Paso a paso de cada columna
+    st.markdown("---")
+    st.subheader("Construcción de la tabla paso a paso")
+    _render_table_steps(gd)
+
+
+def _render_table_steps(gd: GroupedData) -> None:
+    """Muestra cómo se calcula cada columna de la tabla de frecuencias."""
+    n = gd.n
+
+    # --- Ci ---
+    with st.expander("**Ci** — Marca de clase (centro del intervalo)"):
+        st.latex(r"C_i = \frac{Li + Ls}{2}")
+        for i in range(gd.k):
+            a, b = gd.intervals[i]
+            ci = gd.ci[i]
+            st.latex(
+                rf"C_{{{i+1}}} = \frac{{{format_number(a)} + {format_number(b)}}}{{2}} = {format_number(ci)}"
+            )
+
+    # --- fai ---
+    with st.expander("**fai** — Frecuencia absoluta (dato de entrada)"):
+        st.markdown("Las frecuencias absolutas son los datos de entrada: la cantidad de observaciones en cada intervalo.")
+        for i in range(gd.k):
+            a, b = gd.intervals[i]
+            fai = gd.frequencies[i]
+            st.latex(rf"f_{{a{i+1}}} \; [{format_number(a)} \text{{–}} {format_number(b)}): \; {fai}")
+        st.latex(rf"n = \sum f_{{ai}} = {n}")
+
+    # --- fi ---
+    with st.expander("**fi** — Frecuencia relativa"):
+        st.latex(rf"f_i = \frac{{f_{{ai}}}}{{n}} \qquad n = {n}")
+        for i in range(gd.k):
+            fai = gd.frequencies[i]
+            fi = fai / n
+            st.latex(
+                rf"f_{{{i+1}}} = \frac{{{fai}}}{{{n}}} = {format_number(fi)}"
+            )
+
+    # --- Fai ---
+    with st.expander("**Fai** — Frecuencia acumulada absoluta izquierda"):
+        st.latex(r"F_{ai} = \sum_{j=1}^{i} f_{aj}")
+        cum_abs = 0
+        for i in range(gd.k):
+            fai = gd.frequencies[i]
+            cum_abs += fai
+            if i == 0:
+                st.latex(rf"F_{{a1}} = f_{{a1}} = {cum_abs}")
+            else:
+                st.latex(
+                    rf"F_{{a{i+1}}} = F_{{a{i}}} + f_{{a{i+1}}} = "
+                    rf"{cum_abs - fai} + {fai} = {cum_abs}"
+                )
+
+    # --- Fi ---
+    with st.expander("**Fi** — Frecuencia acumulada relativa izquierda"):
+        st.latex(r"F_i = \sum_{j=1}^{i} f_j")
+        cum = 0.0
+        for i in range(gd.k):
+            fi = gd.frequencies[i] / n
+            cum += fi
+            if i == 0:
+                st.latex(rf"F_1 = f_1 = {format_number(cum)}")
+            else:
+                st.latex(
+                    rf"F_{{{i+1}}} = F_{{{i}}} + f_{{{i+1}}} = "
+                    rf"{format_number(cum - fi)} + {format_number(fi)} = {format_number(cum)}"
+                )
+
+    # --- Gai ---
+    with st.expander("**Gai** — Frecuencia acumulada absoluta derecha"):
+        st.latex(r"G_{ai} = \sum_{j=i}^{k} f_{aj}")
+        cum_right = 0
+        gai_list = []
+        for i in range(gd.k - 1, -1, -1):
+            cum_right += gd.frequencies[i]
+            gai_list.append(cum_right)
+        gai_list.reverse()
+        for i in range(gd.k):
+            fai = gd.frequencies[i]
+            if i == 0:
+                st.latex(rf"G_{{a1}} = n = {gai_list[0]}")
+            else:
+                st.latex(
+                    rf"G_{{a{i+1}}} = G_{{a{i}}} - f_{{a{i}}} = "
+                    rf"{gai_list[i-1]} - {gd.frequencies[i-1]} = {gai_list[i]}"
+                )
+
+    # --- Gi ---
+    with st.expander("**Gi** — Frecuencia acumulada relativa derecha"):
+        st.latex(r"G_i = \sum_{j=i}^{k} f_j")
+        for i in range(gd.k):
+            gi = gai_list[i] / n
+            if i == 0:
+                st.latex(rf"G_1 = 1 = {format_number(gi)}")
+            else:
+                fi_prev = gd.frequencies[i-1] / n
+                gi_prev = gai_list[i-1] / n
+                st.latex(
+                    rf"G_{{{i+1}}} = G_{{{i}}} - f_{{{i}}} = "
+                    rf"{format_number(gi_prev)} - {format_number(fi_prev)} = {format_number(gi)}"
+                )
+
+    # --- Ci·fai ---
+    with st.expander("**Ci·fai** — Producto para la media"):
+        st.latex(r"\bar{x} = \frac{\sum f_{ai} \cdot C_i}{n}")
+        total = 0.0
+        for i in range(gd.k):
+            fai = gd.frequencies[i]
+            ci = gd.ci[i]
+            fai_ci = fai * ci
+            total += fai_ci
+            st.latex(
+                rf"f_{{a{i+1}}} \cdot C_{{{i+1}}} = {fai} \cdot {format_number(ci)} = {format_number(fai_ci)}"
+            )
+        st.latex(rf"\sum f_{{ai}} \cdot C_i = {format_number(total)}")
+
+    # --- (Ci−x̄)²·fai ---
+    with st.expander("**(Ci−x̄)²·fai** — Producto para la varianza"):
+        st.latex(r"S_n^2 = \frac{1}{n} \sum f_{ai} \cdot (C_i - \bar{x})^2")
+        mu = sum(gd.ci[i] * gd.frequencies[i] for i in range(gd.k)) / n if n > 0 else 0.0
+        st.latex(rf"\bar{{x}} = {format_number(mu)}")
+        total = 0.0
+        for i in range(gd.k):
+            fai = gd.frequencies[i]
+            ci = gd.ci[i]
+            diff = ci - mu
+            val = diff ** 2 * fai
+            total += val
+            st.latex(
+                rf"f_{{a{i+1}}} \cdot (C_{{{i+1}}} - \bar{{x}})^2 = {fai} \cdot ({format_number(ci)} - {format_number(mu)})^2 = "
+                rf"{fai} \cdot {format_number(diff**2)} = {format_number(val)}"
+            )
+        st.latex(rf"\sum f_{{ai}} \cdot (C_i - \bar{{x}})^2 = {format_number(total)}")
 
 
 def _render_graphs(gd: GroupedData) -> None:

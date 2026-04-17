@@ -1,6 +1,7 @@
 """Funciones estadisticas comunes para todas las distribuciones."""
 
 import math
+from decimal import Decimal, ROUND_DOWN
 from typing import Callable, Tuple, Optional
 from calculation.step_types import CalcResult
 from calculation.step_engine import StepBuilder
@@ -104,16 +105,48 @@ def build_full_table_discrete(prob_func: Callable[[int], float],
     return rows
 
 
-def format_number(value: float, decimals: int = 6) -> str:
-    """Formatea un numero para mostrar, evitando trailing zeros innecesarios."""
+def _custom_round(value: float, decimals: int) -> float:
+    """Trunca a *decimals* decimales; sube el último dígito solo si el siguiente es >= 6.
+
+    Regla de cátedra:
+        5.º dígito >= 6 → el 4.º sube 1
+        5.º dígito <= 5 → el 4.º queda igual
+    Ejemplo: 0.55648 → 0.5565 | 0.55645 → 0.5564
+    """
+    if value == 0:
+        return 0.0
+    d = Decimal(str(value))
+    sign = 1 if d >= 0 else -1
+    d = abs(d)
+
+    step = Decimal(10) ** -decimals
+    truncated = (d / step).to_integral_value(rounding=ROUND_DOWN) * step
+
+    step_extra = Decimal(10) ** -(decimals + 1)
+    extended = (d / step_extra).to_integral_value(rounding=ROUND_DOWN)
+    next_digit = int(extended % 10)
+
+    if next_digit >= 6:
+        truncated += step
+
+    return float(sign * truncated)
+
+
+def format_number(value: float, decimals: int = 4) -> str:
+    """Formatea un número con hasta *decimals* cifras decimales.
+
+    Usa redondeo de cátedra: sube el último dígito solo si el siguiente es >= 6.
+    Enteros se muestran sin decimales (ej. 495 → '495').
+    Si no se pierde información al truncar, no agrega ceros de relleno
+    (ej. 1.5 → '1.5', pero 1.50001 → '1.5000').
+    """
     if value == int(value) and abs(value) < 1e12:
         return str(int(value))
-    formatted = f"{value:.{decimals}f}"
-    # Eliminar trailing zeros pero mantener al menos 4 decimales significativos
-    if "." in formatted:
-        formatted = formatted.rstrip("0")
-        if formatted.endswith("."):
-            formatted += "0"
+    rounded = _custom_round(value, decimals)
+    formatted = f"{rounded:.{decimals}f}"
+    # Si el valor original ya cabía en menos decimales, quitar ceros sobrantes
+    if rounded == value:
+        formatted = formatted.rstrip("0").rstrip(".")
     return formatted
 
 

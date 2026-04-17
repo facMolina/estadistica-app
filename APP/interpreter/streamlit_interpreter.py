@@ -29,6 +29,23 @@ def interpret_turn(messages: list[dict], user_text: str) -> dict:
             "messages": updated_messages,
         }
 
+    if result["status"] == "compound":
+        from calculation.compound_solver import solve_compound
+        try:
+            solution = solve_compound(result)
+        except Exception as e:
+            return {
+                "action": "error",
+                "message": f"Error al resolver problema compuesto: {e}",
+                "messages": updated_messages,
+            }
+        sc = {
+            "mode": "Problema Compuesto",
+            "compound_solution": solution,
+            "interpretation": result.get("interpretation", "Problema compuesto detectado."),
+        }
+        return {"action": "complete", "sc": sc, "messages": updated_messages}
+
     if result["status"] == "complete":
         mode = result.get("mode", "Modelos de Probabilidad")
 
@@ -104,16 +121,25 @@ def apply_sc_to_session(sc: dict, st_session) -> None:
     """
     mode = sc.get("mode", "Modelos de Probabilidad")
 
-    # Cambiar modo
+    # Limpiar solución compuesta si el nuevo modo no es compuesto
+    if mode != "Problema Compuesto":
+        st_session.pop("compound_solution", None)
+
+    # Problema Compuesto — guardar solución sin cambiar modo
+    if mode == "Problema Compuesto":
+        st_session["compound_solution"] = sc.get("compound_solution")
+        return
+
+    # Cambiar modo (pendiente — se aplica antes del widget en el próximo rerun)
     if mode in ("Datos Agrupados", "Probabilidad"):
-        st_session["app_mode"] = mode
+        st_session["_pending_mode"] = mode
 
     # Datos Agrupados — pre-llenar tabla
     if mode == "Datos Agrupados" and sc.get("dp_intervals") and sc.get("dp_frequencies"):
         st_session["dp_df"] = pd.DataFrame({
             "Li": [a for a, b in sc["dp_intervals"]],
             "Ls": [b for a, b in sc["dp_intervals"]],
-            "fi": sc["dp_frequencies"],
+            "fai": sc["dp_frequencies"],
         })
 
     # Probabilidad — pre-llenar parámetros
@@ -129,16 +155,25 @@ def apply_sc_to_session(sc: dict, st_session) -> None:
             })
         if sc.get("bayes_evidence"):
             st_session["prob_ev"] = sc["bayes_evidence"]
-        if sc.get("prob_pA") is not None:
-            st_session["prob_pA"] = float(sc["prob_pA"])
-        if sc.get("prob_pB") is not None:
-            st_session["prob_pB"] = float(sc["prob_pB"])
-        if sc.get("prob_pAB") is not None:
-            st_session["prob_pAB"] = float(sc["prob_pAB"])
         if sc.get("prob_name_A"):
             st_session["prob_nameA"] = sc["prob_name_A"]
         if sc.get("prob_name_B"):
             st_session["prob_nameB"] = sc["prob_name_B"]
+
+        # Construir multiselect y valores para el solver genérico
+        known_sel = []
+        _KEY_MAP = {
+            "prob_pA": ("P(A)", "prob_pA"),
+            "prob_pB": ("P(B)", "prob_pB"),
+            "prob_pAB": ("P(A∩B)", "prob_pAB"),
+            "prob_pAB_comp": ("P(A'∩B') — ninguno", "prob_pNone"),
+        }
+        for sc_key, (label, st_key) in _KEY_MAP.items():
+            if sc.get(sc_key) is not None:
+                known_sel.append(label)
+                st_session[st_key] = float(sc[sc_key])
+        if known_sel:
+            st_session["prob_known_sel"] = known_sel
 
 
 # ---------------------------------------------------------------------------

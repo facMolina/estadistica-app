@@ -25,6 +25,7 @@ from ui.components.continuous_ui import (
     render_continuous_sidebar,
     render_continuous_main,
 )
+from ui.components.compound_ui import render_compound_main
 from calculation.statistics_common import format_number
 from config.settings import SESSION_CONFIG_PATH
 from interpreter.streamlit_interpreter import interpret_turn, apply_sc_to_session
@@ -63,6 +64,10 @@ if "nl_state" not in st.session_state:
         "nl_partial": None,
         "nl_error": None,
     })
+
+# --- Aplicar cambio de modo pendiente (antes de crear el radio widget) ---
+if "_pending_mode" in st.session_state:
+    st.session_state["app_mode"] = st.session_state.pop("_pending_mode")
 
 if sc_is_new:
     st.info(f"Problema cargado: {sc.get('interpretation', '')}")
@@ -339,6 +344,16 @@ with st.sidebar:
         st.markdown("---")
         detail_level = render_detail_selector()
 
+
+# ---------------------------------------------------------------------------
+# Contenido principal — Problema Compuesto
+# ---------------------------------------------------------------------------
+if st.session_state.get("compound_solution"):
+    render_compound_main(st.session_state["compound_solution"], detail_level)
+    if st.button("Cerrar resolución compuesta"):
+        st.session_state.pop("compound_solution", None)
+        st.rerun()
+    st.stop()
 
 # ---------------------------------------------------------------------------
 # Contenido principal — Datos Agrupados

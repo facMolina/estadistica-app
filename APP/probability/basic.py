@@ -5,7 +5,7 @@ Cada funcion retorna un CalcResult con paso a paso usando el mismo motor
 que los modelos de distribucion.
 """
 
-from typing import Tuple
+from typing import Dict, Optional, Tuple
 from calculation.step_types import CalcResult
 from calculation.step_engine import StepBuilder
 from calculation.statistics_common import format_number
@@ -219,3 +219,236 @@ def check_independence(
         final_value=1.0 if are_independent else 0.0,
         final_latex=latex_verdict,
     )
+
+
+# ---------------------------------------------------------------------------
+# Solver genérico: resolver P(A), P(B), P(A∩B) a partir de datos parciales
+# ---------------------------------------------------------------------------
+
+def solve_two_events(
+    knowns: Dict[str, Optional[float]],
+    name_A: str = "A",
+    name_B: str = "B",
+) -> Tuple[Dict[str, Optional[float]], Optional[CalcResult]]:
+    """
+    Resuelve el sistema de dos eventos a partir de cualquier combinación
+    de datos conocidos.
+
+    knowns puede contener:
+        pA, pB, pAB, pAuB, pNone, pAgB, pBgA, pAc, pBc,
+        rel ('independent' | 'mutually_exclusive' | None)
+
+    Retorna (solved_dict, CalcResult con derivación paso a paso).
+    solved_dict tiene claves: pA, pB, pAB (None si indeterminado).
+    """
+    pA: Optional[float] = knowns.get("pA")
+    pB: Optional[float] = knowns.get("pB")
+    pAB: Optional[float] = knowns.get("pAB")
+    pAuB: Optional[float] = knowns.get("pAuB")
+    pNone: Optional[float] = knowns.get("pNone")
+    pAgB: Optional[float] = knowns.get("pAgB")
+    pBgA: Optional[float] = knowns.get("pBgA")
+    pAc: Optional[float] = knowns.get("pAc")
+    pBc: Optional[float] = knowns.get("pBc")
+    rel: Optional[str] = knowns.get("rel")
+
+    lA, lB = _ln(name_A), _ln(name_B)
+    builder = StepBuilder("Derivación del sistema")
+    derived_any = False  # solo crear CalcResult si hubo derivación
+
+    # --- Paso 0: conversiones directas (complementos) ---
+    if pA is None and pAc is not None:
+        pA = 1 - pAc
+        builder.add_step(
+            desc=f"P({name_A}) a partir de su complemento",
+            latex=rf"P({lA}) = 1 - P({lA}^c) = 1 - {format_number(pAc, 4)} = {format_number(pA, 4)}",
+            result=pA, level_min=1,
+        )
+        derived_any = True
+
+    if pB is None and pBc is not None:
+        pB = 1 - pBc
+        builder.add_step(
+            desc=f"P({name_B}) a partir de su complemento",
+            latex=rf"P({lB}) = 1 - P({lB}^c) = 1 - {format_number(pBc, 4)} = {format_number(pB, 4)}",
+            result=pB, level_min=1,
+        )
+        derived_any = True
+
+    if pNone is not None and pAuB is None:
+        pAuB = 1 - pNone
+        builder.add_step(
+            desc=f"P({name_A}∪{name_B}) a partir de P(ninguno)",
+            latex=(rf"P({lA} \cup {lB}) = 1 - P({lA}' \cap {lB}') = "
+                   rf"1 - {format_number(pNone, 4)} = {format_number(pAuB, 4)}"),
+            result=pAuB, level_min=1,
+        )
+        derived_any = True
+
+    # --- Resolución iterativa ---
+    _MAX_ITER = 10
+    for _ in range(_MAX_ITER):
+        progress = False
+
+        # P(A∩B) por mutuamente excluyentes
+        if pAB is None and rel == "mutually_exclusive":
+            pAB = 0.0
+            builder.add_step(
+                desc="Mutuamente excluyentes → P(A∩B) = 0",
+                latex=rf"P({lA} \cap {lB}) = 0",
+                result=0.0, level_min=1,
+            )
+            progress = derived_any = True
+
+        # P(A∩B) por independencia
+        if pAB is None and rel == "independent" and pA is not None and pB is not None:
+            pAB = pA * pB
+            builder.add_step(
+                desc="Independientes → P(A∩B) = P(A)·P(B)",
+                latex=(rf"P({lA} \cap {lB}) = {format_number(pA, 4)} \cdot "
+                       rf"{format_number(pB, 4)} = {format_number(pAB, 4)}"),
+                result=pAB, level_min=1,
+            )
+            progress = derived_any = True
+
+        # P(A∩B) desde P(A|B)·P(B)
+        if pAB is None and pAgB is not None and pB is not None:
+            pAB = pAgB * pB
+            builder.add_step(
+                desc="P(A∩B) desde condicional P(A|B)",
+                latex=(rf"P({lA} \cap {lB}) = P({lA}|{lB}) \cdot P({lB}) = "
+                       rf"{format_number(pAgB, 4)} \cdot {format_number(pB, 4)} = {format_number(pAB, 4)}"),
+                result=pAB, level_min=1,
+            )
+            progress = derived_any = True
+
+        # P(A∩B) desde P(B|A)·P(A)
+        if pAB is None and pBgA is not None and pA is not None:
+            pAB = pBgA * pA
+            builder.add_step(
+                desc="P(A∩B) desde condicional P(B|A)",
+                latex=(rf"P({lA} \cap {lB}) = P({lB}|{lA}) \cdot P({lA}) = "
+                       rf"{format_number(pBgA, 4)} \cdot {format_number(pA, 4)} = {format_number(pAB, 4)}"),
+                result=pAB, level_min=1,
+            )
+            progress = derived_any = True
+
+        # P(A∩B) desde unión: P(A∩B) = P(A) + P(B) - P(A∪B)
+        if pAB is None and pA is not None and pB is not None and pAuB is not None:
+            pAB = pA + pB - pAuB
+            builder.add_step(
+                desc="P(A∩B) desde fórmula de unión",
+                latex=(rf"P({lA} \cap {lB}) = P({lA}) + P({lB}) - P({lA} \cup {lB}) = "
+                       rf"{format_number(pA, 4)} + {format_number(pB, 4)} - "
+                       rf"{format_number(pAuB, 4)} = {format_number(pAB, 4)}"),
+                result=pAB, level_min=1,
+            )
+            progress = derived_any = True
+
+        # P(A) desde unión: P(A) = P(A∪B) + P(A∩B) - P(B)
+        if pA is None and pB is not None and pAB is not None and pAuB is not None:
+            pA = pAuB + pAB - pB
+            builder.add_step(
+                desc=f"P({name_A}) despejando de la fórmula de unión",
+                latex=(rf"P({lA}) = P({lA} \cup {lB}) + P({lA} \cap {lB}) - P({lB}) = "
+                       rf"{format_number(pAuB, 4)} + {format_number(pAB, 4)} - "
+                       rf"{format_number(pB, 4)} = {format_number(pA, 4)}"),
+                result=pA, level_min=1,
+            )
+            progress = derived_any = True
+
+        # P(B) desde unión: P(B) = P(A∪B) + P(A∩B) - P(A)
+        if pB is None and pA is not None and pAB is not None and pAuB is not None:
+            pB = pAuB + pAB - pA
+            builder.add_step(
+                desc=f"P({name_B}) despejando de la fórmula de unión",
+                latex=(rf"P({lB}) = P({lA} \cup {lB}) + P({lA} \cap {lB}) - P({lA}) = "
+                       rf"{format_number(pAuB, 4)} + {format_number(pAB, 4)} - "
+                       rf"{format_number(pA, 4)} = {format_number(pB, 4)}"),
+                result=pB, level_min=1,
+            )
+            progress = derived_any = True
+
+        # P(A∪B) desde P(A) + P(B) - P(A∩B)
+        if pAuB is None and pA is not None and pB is not None and pAB is not None:
+            pAuB = pA + pB - pAB
+            progress = True  # no step needed — auxiliary
+
+        # P(A) desde P(B|A): P(A) = P(A∩B) / P(B|A)
+        if pA is None and pBgA is not None and pAB is not None and pBgA > 1e-15:
+            pA = pAB / pBgA
+            builder.add_step(
+                desc=f"P({name_A}) desde condicional P({name_B}|{name_A})",
+                latex=(rf"P({lA}) = \frac{{P({lA} \cap {lB})}}{{P({lB}|{lA})}} = "
+                       rf"\frac{{{format_number(pAB, 4)}}}{{{format_number(pBgA, 4)}}} = "
+                       rf"{format_number(pA, 4)}"),
+                result=pA, level_min=1,
+            )
+            progress = derived_any = True
+
+        # P(B) desde P(A|B): P(B) = P(A∩B) / P(A|B)
+        if pB is None and pAgB is not None and pAB is not None and pAgB > 1e-15:
+            pB = pAB / pAgB
+            builder.add_step(
+                desc=f"P({name_B}) desde condicional P({name_A}|{name_B})",
+                latex=(rf"P({lB}) = \frac{{P({lA} \cap {lB})}}{{P({lA}|{lB})}} = "
+                       rf"\frac{{{format_number(pAB, 4)}}}{{{format_number(pAgB, 4)}}} = "
+                       rf"{format_number(pB, 4)}"),
+                result=pB, level_min=1,
+            )
+            progress = derived_any = True
+
+        # P(A) por independencia + unión
+        if (pA is None and rel == "independent" and pB is not None
+                and pAuB is not None and pB < 1.0):
+            pA = (pAuB - pB) / (1 - pB)
+            builder.add_step(
+                desc=f"P({name_A}) por independencia y unión",
+                latex=(rf"P({lA}) = \frac{{P({lA} \cup {lB}) - P({lB})}}{{1 - P({lB})}} = "
+                       rf"\frac{{{format_number(pAuB, 4)} - {format_number(pB, 4)}}}"
+                       rf"{{{format_number(1 - pB, 4)}}} = {format_number(pA, 4)}"),
+                result=pA, level_min=1,
+            )
+            progress = derived_any = True
+
+        # P(B) por independencia + unión
+        if (pB is None and rel == "independent" and pA is not None
+                and pAuB is not None and pA < 1.0):
+            pB = (pAuB - pA) / (1 - pA)
+            builder.add_step(
+                desc=f"P({name_B}) por independencia y unión",
+                latex=(rf"P({lB}) = \frac{{P({lA} \cup {lB}) - P({lA})}}{{1 - P({lA})}} = "
+                       rf"\frac{{{format_number(pAuB, 4)} - {format_number(pA, 4)}}}"
+                       rf"{{{format_number(1 - pA, 4)}}} = {format_number(pB, 4)}"),
+                result=pB, level_min=1,
+            )
+            progress = derived_any = True
+
+        if not progress:
+            break
+
+    solved = {"pA": pA, "pB": pB, "pAB": pAB}
+
+    if not derived_any:
+        return solved, None
+
+    # Resumen final
+    parts = []
+    if pA is not None:
+        parts.append(rf"P({lA}) = {format_number(pA, 4)}")
+    if pB is not None:
+        parts.append(rf"P({lB}) = {format_number(pB, 4)}")
+    if pAB is not None:
+        parts.append(rf"P({lA} \cap {lB}) = {format_number(pAB, 4)}")
+    if parts:
+        builder.add_step(
+            desc="Sistema resuelto",
+            latex=r",\quad ".join(parts),
+            level_min=1,
+        )
+
+    cr = builder.build(
+        final_value=pAB if pAB is not None else 0.0,
+        final_latex=r",\quad ".join(parts) if parts else "",
+    )
+    return solved, cr

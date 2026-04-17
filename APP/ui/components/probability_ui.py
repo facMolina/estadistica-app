@@ -2,7 +2,7 @@
 UI para Teoria de la Probabilidad — Tema II (Sprint 3).
 
 Dos sub-modos:
-  1. Operaciones con dos eventos: P(A∪B), P(A|B), complemento, independencia
+  1. Probabilidad de eventos: P(A∪B), P(A|B), complemento, independencia
   2. Bayes / Probabilidad Total: n hipotesis con tabla completa
 
 Funciones publicas:
@@ -22,6 +22,7 @@ from probability.basic import (
     calc_complement,
     calc_conditional,
     check_independence,
+    solve_two_events,
 )
 from probability.bayes import BayesCalc
 from ui.components.step_display import render_calc_result
@@ -33,12 +34,29 @@ from calculation.statistics_common import format_number
 # ---------------------------------------------------------------------------
 
 _SUBMODES = [
-    "Operaciones con dos eventos",
+    "Probabilidad de eventos",
     "Bayes / Probabilidad Total",
 ]
 
-_RELATIONSHIPS = {
-    "P(A∩B) conocida": "known",
+# Opciones para el multiselect de datos conocidos
+_KNOWN_OPTIONS = [
+    "P(A)",
+    "P(B)",
+    "P(A∩B)",
+    "P(A∪B)",
+    "P(A'∩B') — ninguno",
+    "P(A|B)",
+    "P(B|A)",
+]
+
+_REL_OPTIONS = [
+    "Sin restricción",
+    "Independientes  [P(A∩B) = P(A)·P(B)]",
+    "Mutuamente excluyentes  [P(A∩B) = 0]",
+]
+
+_REL_MAP = {
+    "Sin restricción": None,
     "Independientes  [P(A∩B) = P(A)·P(B)]": "independent",
     "Mutuamente excluyentes  [P(A∩B) = 0]": "mutually_exclusive",
 }
@@ -64,7 +82,7 @@ def render_probability_sidebar() -> Dict[str, Any]:
 
     params: Dict[str, Any] = {"submode": submode}
 
-    if submode == "Operaciones con dos eventos":
+    if submode == "Probabilidad de eventos":
         params.update(_sidebar_two_events())
     else:
         params.update(_sidebar_bayes())
@@ -80,29 +98,94 @@ def _sidebar_two_events() -> Dict[str, Any]:
     with c2:
         name_B = st.text_input("Nombre de B", value="B", key="prob_nameB")
 
-    st.subheader("Probabilidades")
-    pA = st.number_input(f"P({name_A})", min_value=0.0, max_value=1.0,
-                         value=0.40, step=0.01, format="%.4f", key="prob_pA")
-    pB = st.number_input(f"P({name_B})", min_value=0.0, max_value=1.0,
-                         value=0.60, step=0.01, format="%.4f", key="prob_pB")
+    st.subheader("Datos conocidos")
 
-    st.subheader("Relacion A∩B")
-    rel_label = st.radio("", list(_RELATIONSHIPS.keys()), key="prob_rel")
-    relationship = _RELATIONSHIPS[rel_label]
+    known_sel = st.multiselect(
+        "Seleccioná los datos que conocés",
+        _KNOWN_OPTIONS,
+        default=["P(A)", "P(B)", "P(A∩B)"],
+        key="prob_known_sel",
+    )
 
-    pAB_user = 0.0
-    if relationship == "known":
-        pAB_user = st.number_input(
-            f"P({name_A}∩{name_B})", min_value=0.0,
-            max_value=float(min(pA, pB)),
-            value=min(0.20, float(min(pA, pB))),
-            step=0.01, format="%.4f", key="prob_pAB"
-        )
+    # Inputs para cada dato seleccionado
+    knowns: Dict[str, float] = {}
+
+    if "P(A)" in known_sel:
+        knowns["pA"] = st.number_input(
+            f"P({name_A})", min_value=0.0, max_value=1.0,
+            value=0.40, step=0.01, format="%.4f", key="prob_pA")
+    if "P(B)" in known_sel:
+        knowns["pB"] = st.number_input(
+            f"P({name_B})", min_value=0.0, max_value=1.0,
+            value=0.60, step=0.01, format="%.4f", key="prob_pB")
+    if "P(A∩B)" in known_sel:
+        knowns["pAB"] = st.number_input(
+            f"P({name_A}∩{name_B})", min_value=0.0, max_value=1.0,
+            value=0.20, step=0.01, format="%.4f", key="prob_pAB")
+    if "P(A∪B)" in known_sel:
+        knowns["pAuB"] = st.number_input(
+            f"P({name_A}∪{name_B})", min_value=0.0, max_value=1.0,
+            value=0.80, step=0.01, format="%.4f", key="prob_pAuB")
+    if "P(A'∩B') — ninguno" in known_sel:
+        knowns["pNone"] = st.number_input(
+            f"P({name_A}'∩{name_B}') — ninguno", min_value=0.0, max_value=1.0,
+            value=0.02, step=0.01, format="%.4f", key="prob_pNone")
+    if "P(A|B)" in known_sel:
+        knowns["pAgB"] = st.number_input(
+            f"P({name_A}|{name_B})", min_value=0.0, max_value=1.0,
+            value=0.50, step=0.01, format="%.4f", key="prob_pAgB")
+    if "P(B|A)" in known_sel:
+        knowns["pBgA"] = st.number_input(
+            f"P({name_B}|{name_A})", min_value=0.0, max_value=1.0,
+            value=0.50, step=0.01, format="%.4f", key="prob_pBgA")
+
+    st.subheader("Relación entre eventos")
+    rel_label = st.radio("", _REL_OPTIONS, key="prob_rel")
+    rel = _REL_MAP[rel_label]
+    if rel is not None:
+        knowns["rel"] = rel
+
+    # Resolver sistema
+    solved, derivation_cr = solve_two_events(knowns, name_A, name_B)
+    pA = solved.get("pA")
+    pB = solved.get("pB")
+    pAB = solved.get("pAB")
+
+    # Mostrar resultado de la derivación
+    if derivation_cr is not None:
+        if pA is not None and pB is not None and pAB is not None:
+            st.success(
+                f"**Sistema resuelto:** P({name_A})={format_number(pA, 4)}, "
+                f"P({name_B})={format_number(pB, 4)}, "
+                f"P({name_A}∩{name_B})={format_number(pAB, 4)}"
+            )
+        else:
+            missing = []
+            if pA is None: missing.append(f"P({name_A})")
+            if pB is None: missing.append(f"P({name_B})")
+            if pAB is None: missing.append(f"P({name_A}∩{name_B})")
+            st.warning(f"Datos insuficientes. Faltan: {', '.join(missing)}")
+    elif pA is None or pB is None or pAB is None:
+        missing = []
+        if pA is None: missing.append(f"P({name_A})")
+        if pB is None: missing.append(f"P({name_B})")
+        if pAB is None: missing.append(f"P({name_A}∩{name_B})")
+        st.warning(f"Datos insuficientes. Faltan: {', '.join(missing)}")
+
+    # Determinar relationship para las funciones existentes
+    relationship = "known"
+    if rel == "independent":
+        relationship = "independent"
+    elif rel == "mutually_exclusive":
+        relationship = "mutually_exclusive"
 
     return {
         "name_A": name_A, "name_B": name_B,
-        "pA": pA, "pB": pB,
-        "relationship": relationship, "pAB_user": pAB_user,
+        "pA": pA if pA is not None else 0.0,
+        "pB": pB if pB is not None else 0.0,
+        "relationship": relationship,
+        "pAB_user": pAB if pAB is not None else 0.0,
+        "derivation_cr": derivation_cr,
     }
 
 
@@ -170,7 +253,7 @@ def _sidebar_bayes() -> Dict[str, Any]:
 def render_probability_main(params: Dict[str, Any], detail_level: int) -> None:
     submode = params.get("submode", "")
 
-    if submode == "Operaciones con dos eventos":
+    if submode == "Probabilidad de eventos":
         _render_two_events(params, detail_level)
     else:
         _render_bayes(params, detail_level)
@@ -187,6 +270,7 @@ def _render_two_events(params: Dict[str, Any], detail_level: int) -> None:
     pB = params["pB"]
     relationship = params["relationship"]
     pAB_user = params["pAB_user"]
+    derivation_cr = params.get("derivation_cr")
 
     # Calcular P(A∩B) con paso a paso
     pAB, cr_inter = calc_intersection(pA, pB, relationship, pAB_user, name_A, name_B)
@@ -209,8 +293,13 @@ def _render_two_events(params: Dict[str, Any], detail_level: int) -> None:
 
     st.markdown("---")
 
+    # Si hubo derivación del solver, mostrar paso a paso
+    if derivation_cr is not None:
+        with st.expander("Derivacion del sistema — paso a paso", expanded=True):
+            render_calc_result(derivation_cr, detail_level)
+
     # Paso a paso en expandibles
-    with st.expander(f"P({name_A}∩{name_B}) — Interseccion", expanded=True):
+    with st.expander(f"P({name_A}∩{name_B}) — Interseccion", expanded=(derivation_cr is None)):
         render_calc_result(cr_inter, detail_level)
 
     with st.expander(f"P({name_A}∪{name_B}) — Union"):
@@ -233,6 +322,8 @@ def _render_two_events(params: Dict[str, Any], detail_level: int) -> None:
 
     with st.expander(f"Independencia: {name_A} y {name_B}"):
         render_calc_result(check_independence(pA, pB, pAB, name_A, name_B), detail_level)
+
+
 
 
 # ---------------------------------------------------------------------------
@@ -281,7 +372,7 @@ def _render_bayes_table(bc: BayesCalc) -> None:
     for col in float_cols:
         if col in df_display.columns:
             df_display[col] = df_display[col].map(
-                lambda v: f"{v:.4f}" if isinstance(v, (int, float)) else v
+                lambda v: format_number(v) if isinstance(v, (int, float)) else v
             )
 
     st.dataframe(df_display, use_container_width=True, hide_index=True)

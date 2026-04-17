@@ -1,3 +1,4 @@
+
 """Modelo de distribucion Hipergeometrica."""
 
 import math

@@ -115,11 +115,11 @@ StepBuilder → add_step(level_min=N) → build() → CalcResult
 - `ui/components/summary_panel.py`: renders `all_characteristics()` dict.
 - `ui/components/graph_panel.py`: 3 Plotly charts — stem plot for P(r), step functions for F(r) and G(r).
 - `ui/components/table_panel.py`: DataFrame from `full_table()` + CSV download.
-- `ui/components/data_processing_ui.py`: Datos Agrupados mode — `st.data_editor` for Li/Ls/fi table, calculates and displays grouped stats (mean, variance, CV, median, fractile), histogram + ogive via Plotly.
-- `ui/components/probability_ui.py`: Probabilidad mode — two sub-modes: "Operaciones con dos eventos" (P(A), P(B), union, intersection, conditional, independence) and "Bayes / Probabilidad Total" (`st.data_editor` for Hipotesis/P(Hi)/P(E|Hi) table, full Bayes theorem step-by-step).
+- `ui/components/data_processing_ui.py`: Datos Agrupados mode — `st.data_editor` for Li/Ls/fai table, calculates and displays grouped stats (mean, variance, CV, median, fractile), histogram + ogive via Plotly. Frequency table uses cátedra notation: Li, Ls, Ci, fai, fi, Fai, Fi, Gai, Gi, Ci·fai, (Ci−x̄)²·fai.
+- `ui/components/probability_ui.py`: Probabilidad mode — two sub-modes: "Probabilidad de eventos" (generic solver: user selects any combination of known data from P(A), P(B), P(A∩B), P(A∪B), P(A'∩B'), P(A|B), P(B|A) via multiselect; the app derives the rest step-by-step using `solve_two_events()`) and "Bayes / Probabilidad Total" (`st.data_editor` for Hipotesis/P(Hi)/P(E|Hi) table, full Bayes theorem step-by-step).
 - `ui/components/continuous_ui.py`: Continuous models — `render_continuous_sidebar(sc)` returns `{model, model_name, title_params, query_type, query_params, model_error}`; `render_continuous_main(cfg, detail_level)` renders 3 tabs (Cálculo, Características, Gráfico). Supports: density, cdf_left, cdf_right, range, fractile queries.
 - `display/graph_builder.py`: `build_probability_polygon()`, `build_cdf_plot()`, `build_histogram()`, `build_ogiva()`, `build_density_plot()` — Plotly figure factories. `build_density_plot(model, title, query_type, x_val, x_a, x_b)` shades the appropriate probability area.
-- `probability/basic.py`: `CalcResult`-returning functions for intersection, union, complement, conditional, independence check.
+- `probability/basic.py`: `CalcResult`-returning functions for intersection, union, complement, conditional, independence check. Also `solve_two_events(knowns, name_A, name_B)` — generic solver that takes any combination of known probability data and iteratively derives P(A), P(B), P(A∩B) with step-by-step CalcResult.
 - `probability/bayes.py`: `BayesCalc` class — `solve()`, `posteriors()`, `prob_evidence()`, `full_table()`.
 
 ## Sprints status
@@ -175,7 +175,7 @@ El parser detecta en qué modo debe operar antes de buscar el modelo de distribu
 | Modo detectado | Señales |
 |----------------|---------|
 | **Datos Agrupados** | keywords: `ogiva`, `histograma`, `datos agrupados`, `fractil`, `cuartil`, `marca de clase`; o bien ≥3 patrones `X-Y` en el texto |
-| **Probabilidad** | keywords fuertes: `bayes`, `a priori`, `a posteriori`, `probabilidad total`, `mutuamente excluyentes`, `complemento de`; o notación `P(A\|B)` / `P(A)=valor`; o ≥2 señales medias (`complemento`, `independientes`, `urna`, `bolillas`, `eventos`) |
+| **Probabilidad** | keywords fuertes: `bayes`, `a priori`, `a posteriori`, `probabilidad total`, `mutuamente excluyentes`, `complemento de`; o notación `P(A\|B)` / `P(A)=valor`; o ≥2 señales medias (`complemento`, `independientes`, `urna`, `bolillas`, `eventos`, `ambas`, `no producir nada`); o 2+ patrones `"probabilidad de ... es de X%"` en lenguaje natural |
 | **Modelos de Probabilidad** | cualquier keyword de `MODELO_PATTERNS` o notación cátedra |
 
 Si el parser detecta modo Datos Agrupados o Probabilidad, `streamlit_interpreter.py` llama a `apply_sc_to_session()` que cambia `st.session_state["app_mode"]` y pre-rellena los widgets correspondientes antes del `st.rerun()`.
@@ -234,7 +234,8 @@ Proceso con 10% defectuosas, muestra de 15, 2 o menos           → cdf_left,   
 - `"fallada/fallado/fallo"` → detecta Binomial (defectos/fallas)
 - 3+ patrones `X-Y` en el texto → modo Datos Agrupados (sin necesitar keyword explícita)
 - `"bayes"`, `"a priori"`, `"probabilidad total"` → modo Probabilidad (Bayes)
-- 2+ señales de evento (P(A|B), complemento, urn, etc.) → modo Probabilidad (dos eventos)
+- 2+ señales de evento (P(A|B), complemento, urna, ambas, etc.) → modo Probabilidad de eventos
+- 2+ patrones "probabilidad de ... es de X%" → modo Probabilidad de eventos (extracción NL: "ambas" → P(A∩B), "nada" → P(A'∩B'), resto → marginales)
 
 ### Ejemplos que rompen el flujo (a corregir con reglas nuevas)
 

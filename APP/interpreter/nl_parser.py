@@ -264,6 +264,13 @@ REQUIRED_PARAMS: dict[str, dict[str, str]] = {
 # Valor de p para moneda (cara o seca)
 _P_MONEDA = 0.5
 
+# Números en palabra (para problemas compuestos: "muestra de dos", "una defectuosa")
+_WORD_TO_NUM = {
+    "un": 1, "una": 1, "uno": 1,
+    "dos": 2, "tres": 3, "cuatro": 4, "cinco": 5,
+    "seis": 6, "siete": 7, "ocho": 8, "nueve": 9, "diez": 10,
+}
+
 
 # ---------------------------------------------------------------------------
 # Clase principal
@@ -283,6 +290,11 @@ class NLParser:
         cathedra = self._try_cathedra(text)
         if cathedra:
             return cathedra
+
+        # Paso 0.5: problemas compuestos (requieren múltiples distribuciones)
+        compound = self._detect_compound(text, text_lower)
+        if compound:
+            return compound
 
         # Paso 1: detectar modo (antes de buscar modelo)
         if self._is_datos_agrupados(text_lower, text):
@@ -494,12 +506,15 @@ class NLParser:
             r"frecuencia\s+(?:relativa|acumulada|absoluta)",
             r"\bmediana\b.*\binterval",
             r"intervalo\s+de\s+clase",
+            r"\bcuasi\s*varianza\b",
         ]
         for pat in strong:
             if re.search(pat, text_lower):
                 return True
-        # Structural: 3+ intervals like "10-20", "20-30"
-        intervals = re.findall(r'\d+(?:[.,]\d+)?\s*[-–—]\s*\d+(?:[.,]\d+)?', text)
+        # Structural: 3+ intervals like "10-20", "10 a 20"
+        intervals = re.findall(
+            r'\d+(?:[.,]\d+)?\s*(?:[-–—]|\ba\b)\s*\d+(?:[.,]\d+)?', text_lower
+        )
         if len(intervals) >= 3:
             return True
         return False
@@ -537,10 +552,20 @@ class NLParser:
             r"\burna\b",
             r"\bbolillas?\b", r"\bbolitas?\b",
             r"\bevento[s]?\b",
+            r"\bambas\b",       # "producir ambas" → intersección
+            r"\bno\s+(?:se\s+)?produz\w+\s+nada\b",  # "no producir nada"
         ]
         for pat in medium:
             if re.search(pat, text_lower):
                 medium_count += 1
+        # Multiple "probabilidad de ... es de X%" patterns → probability problem
+        prob_pct_hits = re.findall(
+            r"probabilidad\s+de\s+.{3,60}?\b(?:es|de[l]?)\s+(?:solo\s+)?(?:de[l]?\s+)?"
+            r"(\d+(?:[.,]\d+)?)\s*%",
+            text_lower,
+        )
+        if len(prob_pct_hits) >= 2:
+            medium_count += 2
         if medium_count >= 2:
             return True
         return False
@@ -577,9 +602,12 @@ class NLParser:
         }
 
     def _extract_intervals_frequencies(self, text: str) -> tuple:
-        # Pattern 1: "Li - Ls   fi" on same row (any separator)
+        # Separador de intervalo: guion, en-dash, em-dash, o "a" entre números
+        _INT_SEP = r'(?:[-–—]|\ba\b)'
+
+        # Pattern 1: "Li - Ls   fi" on same row (any separator incl. /)
         row_pat = re.findall(
-            r'(\d+(?:[.,]\d+)?)\s*[-–—]\s*(\d+(?:[.,]\d+)?)\s*[|\s,;:]+\s*(\d+(?:[.,]\d+)?)',
+            rf'(\d+(?:[.,]\d+)?)\s*{_INT_SEP}\s*(\d+(?:[.,]\d+)?)\s*[|\s,;:/]+\s*(\d+(?:[.,]\d+)?)',
             text,
         )
         if row_pat:
@@ -589,10 +617,10 @@ class NLParser:
 
         # Pattern 2: intervals listed first, then frequencies separately
         interval_matches = re.findall(
-            r'(\d+(?:[.,]\d+)?)\s*[-–—]\s*(\d+(?:[.,]\d+)?)', text
+            rf'(\d+(?:[.,]\d+)?)\s*{_INT_SEP}\s*(\d+(?:[.,]\d+)?)', text
         )
         if interval_matches:
-            clean = re.sub(r'\d+(?:[.,]\d+)?\s*[-–—]\s*\d+(?:[.,]\d+)?', 'INTERVAL', text)
+            clean = re.sub(rf'\d+(?:[.,]\d+)?\s*{_INT_SEP}\s*\d+(?:[.,]\d+)?', 'INTERVAL', text)
             freq_nums_raw = re.findall(r'\b(\d+(?:[.,]\d+)?)\b', clean)
             freq_nums = [float(f.replace(",", ".")) for f in freq_nums_raw]
             integer_freqs = [int(f) for f in freq_nums if f == int(f) and f >= 1]
@@ -621,11 +649,11 @@ class NLParser:
             sc.update(bayes_data)
             return sc
 
-        # Operaciones con dos eventos
+        # Probabilidad de eventos
         sc = {
             "status": "complete",
             "mode": "Probabilidad",
-            "prob_submode": "Operaciones con dos eventos",
+            "prob_submode": "Probabilidad de eventos",
             "interpretation": "Probabilidad de eventos detectada.",
         }
         pA = self._extract_prob_named(text, text_lower, "A")
@@ -634,6 +662,12 @@ class NLParser:
             sc["prob_pA"] = pA
         if pB is not None:
             sc["prob_pB"] = pB
+
+        # Intentar extracción de lenguaje natural si no encontramos P(A)/P(B) formales
+        if pA is None and pB is None:
+            nl_data = self._extract_prob_natural_language(text, text_lower)
+            sc.update(nl_data)
+
         # Relationship detection
         if re.search(r"mutuamente\s+excluyentes?|disjuntos?|se\s+excluyen", text_lower):
             sc["prob_rel"] = "mutually_exclusive"
@@ -700,6 +734,297 @@ class NLParser:
                 val /= 100
             return val
         return None
+
+    def _extract_prob_natural_language(self, text: str, text_lower: str) -> dict:
+        """
+        Extrae probabilidades de dos eventos desde lenguaje natural español.
+
+        Busca patrones como:
+          - "probabilidad de producir X ... es de Y%"
+          - "probabilidad de ambas/ambos ... es de Y%"
+          - "probabilidad de no producir nada ... es de Y%"
+
+        Retorna dict con claves prob_pB, prob_pAB, prob_pAB_comp, prob_name_A/B, prob_derive_pA.
+        """
+        result: dict = {}
+
+        # Extraer todos los items "probabilidad de [algo] es de X%"
+        items = re.findall(
+            r"probabilidad\s+de\s+(.{3,80}?)\s+(?:es|de[l]?)\s+(?:solo\s+)?(?:de[l]?\s+)?"
+            r"(\d+(?:[.,]\d+)?)\s*%",
+            text_lower,
+        )
+        if not items:
+            return result
+
+        # Clasificar cada probabilidad extraída
+        p_both: float | None = None      # P(A∩B) — ambas
+        p_neither: float | None = None   # P(A'∩B') — nada/ninguna
+        p_marginals: list = []           # probabilidades marginales
+
+        for desc, val_str in items:
+            val = float(val_str.replace(",", ".")) / 100
+            desc_clean = desc.strip()
+
+            if re.search(r"\bambas?\b|\bambos?\b|\blas\s+dos\b|\blos\s+dos\b", desc_clean):
+                p_both = val
+            elif re.search(
+                r"\bnada\b|\bninguna?\b|\bno\s+(?:se\s+)?produz\w*|"
+                r"\bno\s+ocurr\w*|\bno\s+se\s+fabric\w*",
+                desc_clean,
+            ):
+                p_neither = val
+            else:
+                p_marginals.append((desc_clean, val))
+
+        # La primera marginal es el evento "principal" → P(B)
+        # (el otro se derivará de P(A'∩B'))
+        if p_marginals:
+            desc_B, val_B = p_marginals[0]
+            result["prob_pB"] = val_B
+            # Intentar extraer nombre del evento
+            name_B = self._extract_event_name(desc_B)
+            if name_B:
+                result["prob_name_B"] = name_B
+
+        if p_both is not None:
+            result["prob_pAB"] = p_both
+
+        if p_neither is not None:
+            result["prob_pAB_comp"] = p_neither
+            result["prob_derive_pA"] = True
+
+        # Si hay segunda marginal, es P(A)
+        if len(p_marginals) >= 2:
+            desc_A, val_A = p_marginals[1]
+            result["prob_pA"] = val_A
+            name_A = self._extract_event_name(desc_A)
+            if name_A:
+                result["prob_name_A"] = name_A
+
+        if result:
+            # Mensaje legible para el usuario
+            parts = []
+            name_B = result.get("prob_name_B", "B")
+            name_A = result.get("prob_name_A", "A")
+            if "prob_pB" in result:
+                parts.append(f"P({name_B}) = {result['prob_pB']}")
+            if "prob_pA" in result:
+                parts.append(f"P({name_A}) = {result['prob_pA']}")
+            if "prob_pAB" in result:
+                parts.append(f"P({name_A}∩{name_B}) = {result['prob_pAB']}")
+            if "prob_pAB_comp" in result:
+                parts.append(f"P(ninguno) = {result['prob_pAB_comp']}")
+            result["interpretation"] = (
+                "Probabilidad de dos eventos detectada: " + ", ".join(parts) + "."
+            )
+
+        return result
+
+    @staticmethod
+    def _extract_event_name(desc: str) -> str | None:
+        """Extrae un nombre corto de evento de una descripción como 'producir gaseosas'."""
+        # Remover prefijos comunes
+        desc = re.sub(r"^(?:producir|fabricar|hacer|tener|que\s+se\s+produz\w+)\s+", "", desc)
+        # Tomar primera(s) palabra(s) significativas
+        words = desc.split()
+        if words:
+            name = words[0].capitalize().rstrip(",.:;")
+            # Si es un artículo, tomar la siguiente
+            if name.lower() in ("solo", "al", "la", "el", "las", "los", "un", "una"):
+                name = words[1].capitalize().rstrip(",.:;") if len(words) > 1 else name
+            return name
+        return None
+
+    # -----------------------------------------------------------------------
+    # Detección de problemas compuestos
+    # -----------------------------------------------------------------------
+
+    def _detect_compound(self, text: str, text_lower: str) -> dict | None:
+        """Detecta problemas que requieren múltiples distribuciones encadenadas."""
+        result = self._try_hiper_binomial(text, text_lower)
+        if result:
+            return result
+        result = self._try_pascal_conditional(text, text_lower)
+        if result:
+            return result
+        return None
+
+    def _try_hiper_binomial(self, text: str, text_lower: str) -> dict | None:
+        """
+        Detecta: muestreo de cajas/lotes (Hipergeométrico) + conteo de rechazos (Binomial).
+        Ej: 'tomar muestra de 2 de cada caja de 10, rechazar si alguna defectuosa, 15 cajas...'
+        """
+        # Señales requeridas: "rechazar" + "caja/lote"
+        if not re.search(r'rechaz', text_lower):
+            return None
+        if not re.search(r'\bcajas?\b|\blotes?\b', text_lower):
+            return None
+
+        # Patrón de muestreo: "muestra de X (unidades) de cada caja/lote de Y"
+        m_sample = re.search(
+            r'muestra\s+de\s+(\w+)\s+(?:unidades?\s+)?de\s+cada\s+(?:caja|lote)\s+de\s+(\d+)',
+            text_lower,
+        )
+        if not m_sample:
+            return None
+
+        sample_n_raw = m_sample.group(1)
+        sample_n = _WORD_TO_NUM.get(sample_n_raw) or (int(sample_n_raw) if sample_n_raw.isdigit() else None)
+        if sample_n is None:
+            return None
+        box_N = int(m_sample.group(2))
+
+        # Número de cajas: "X cajas/lotes"
+        m_boxes = re.search(r'(\d+)\s+(?:cajas?|lotes?)', text_lower)
+        if not m_boxes:
+            return None
+        num_boxes = int(m_boxes.group(1))
+
+        # Defectuosas por caja: "X pieza(s) defectuosa(s) en cada caja"
+        m_defect = re.search(
+            r'(\w+)\s+(?:piezas?\s+)?defectuosas?\s+(?:en\s+)?(?:cada|por)\s+(?:caja|lote)',
+            text_lower,
+        )
+        if m_defect:
+            box_R_raw = m_defect.group(1)
+            box_R = _WORD_TO_NUM.get(box_R_raw) or (int(box_R_raw) if box_R_raw.isdigit() else None)
+            if box_R is None:
+                box_R = 1
+        else:
+            box_R = 1
+
+        # Consulta: "rechacen menos/más/exactamente de X cajas"
+        query_type, query_r = self._extract_compound_query(text_lower)
+        if query_r is None:
+            return None
+
+        return {
+            "status": "compound",
+            "compound_type": "hiper_binomial",
+            "box_N": box_N,
+            "box_R": box_R,
+            "sample_n": sample_n,
+            "num_boxes": num_boxes,
+            "reject_r": 1,
+            "query_type": query_type,
+            "query_r": query_r,
+            "interpretation": (
+                f"Problema compuesto: muestreo de {sample_n} piezas de cada caja de {box_N} "
+                f"(Hipergeométrico) + conteo de cajas rechazadas de {num_boxes} (Binomial)."
+            ),
+        }
+
+    def _try_pascal_conditional(self, text: str, text_lower: str) -> dict | None:
+        """
+        Detecta: Pascal condicional — fabricar r piezas buenas con % defectuosas,
+        dado que en k piezas no se alcanzó, P(necesitar más de m).
+        """
+        # Señales requeridas
+        if not re.search(r'(?:luego|después|despues)\s+de\s+(?:fabricar|producir)', text_lower):
+            return None
+        if not re.search(r'no\s+(?:se\s+)?(?:hab[ií]a\s+)?alcanz', text_lower):
+            return None
+
+        # Consulta: "más de X piezas"
+        m_query = re.search(r'm[aá]s\s+de\s+(\d+)\s+piezas?', text_lower)
+        if not m_query:
+            return None
+        query_n = int(m_query.group(1))
+
+        # Éxitos requeridos: "pedido de X piezas buenas" o "X piezas buenas"
+        m_pedido = re.search(
+            r'(\d+)\s+(?:piezas?\s+)?(?:buenas?|correctas?|no\s+defectuosas?)',
+            text_lower,
+        )
+        if not m_pedido:
+            return None
+        r_success = int(m_pedido.group(1))
+
+        # Tasa de defectuosas: "X% de defectuosas"
+        m_defect = re.search(r'(\d+(?:[.,]\d+)?)\s*%\s*(?:de\s+)?defectuosas?', text_lower)
+        if not m_defect:
+            return None
+        defect_rate = float(m_defect.group(1).replace(",", ".")) / 100
+        p = round(1 - defect_rate, 6)
+
+        # Condición: "luego de fabricar X piezas"
+        m_cond = re.search(
+            r'(?:luego|después|despues)\s+de\s+(?:fabricar|producir)\s+(\d+)\s+piezas?',
+            text_lower,
+        )
+        if not m_cond:
+            return None
+        condition_n = int(m_cond.group(1))
+
+        return {
+            "status": "compound",
+            "compound_type": "pascal_conditional",
+            "r_success": r_success,
+            "p": p,
+            "condition_n": condition_n,
+            "query_n": query_n,
+            "interpretation": (
+                f"Problema compuesto: Pascal condicional. "
+                f"Se necesitan {r_success} piezas buenas (p={p}). "
+                f"Dado que en {condition_n} piezas no se alcanzó, "
+                f"P(necesitar más de {query_n})."
+            ),
+        }
+
+    def _extract_compound_query(self, text_lower: str) -> tuple[str, int | None]:
+        """Extrae tipo de consulta y valor para problemas compuestos sobre cajas/lotes."""
+        unit = r"(?:cajas?|lotes?)"
+
+        # "menos de X cajas" → estrictamente menor → F(X-1)
+        m = re.search(rf'menos\s+de\s+(\d+)\s+{unit}', text_lower)
+        if m:
+            return "cdf_left", int(m.group(1)) - 1
+
+        # "al menos X cajas"
+        m = re.search(rf'(?:al\s+menos|como\s+m[ií]nimo|por\s+lo\s+menos)\s+(\d+)\s+{unit}', text_lower)
+        if m:
+            return "cdf_right", int(m.group(1))
+
+        # "a lo sumo X cajas"
+        m = re.search(rf'(?:a\s+lo\s+sumo|como\s+m[aá]ximo|no\s+m[aá]s\s+de)\s+(\d+)\s+{unit}', text_lower)
+        if m:
+            return "cdf_left", int(m.group(1))
+
+        # "más de X cajas" → estrictamente mayor → G(X+1)
+        m = re.search(rf'm[aá]s\s+de\s+(\d+)\s+{unit}', text_lower)
+        if m:
+            return "cdf_right", int(m.group(1)) + 1
+
+        # "exactamente X cajas"
+        m = re.search(rf'(?:exactamente|justo)\s+(\d+)\s+{unit}', text_lower)
+        if m:
+            return "probability", int(m.group(1))
+
+        # "X o menos cajas"
+        m = re.search(rf'(\d+)\s+o\s+menos\s+{unit}', text_lower)
+        if m:
+            return "cdf_left", int(m.group(1))
+
+        # "X o más cajas"
+        m = re.search(rf'(\d+)\s+o\s+m[aá]s\s+{unit}', text_lower)
+        if m:
+            return "cdf_right", int(m.group(1))
+
+        # Fallback sin unidad: "rechacen menos de X"
+        m = re.search(r'rechacen?\s+menos\s+de\s+(\d+)', text_lower)
+        if m:
+            return "cdf_left", int(m.group(1)) - 1
+
+        m = re.search(r'rechacen?\s+(?:al\s+menos|como\s+m[ií]nimo)\s+(\d+)', text_lower)
+        if m:
+            return "cdf_right", int(m.group(1))
+
+        m = re.search(r'rechacen?\s+m[aá]s\s+de\s+(\d+)', text_lower)
+        if m:
+            return "cdf_right", int(m.group(1)) + 1
+
+        return "cdf_left", None
 
     # -----------------------------------------------------------------------
     # Construir interpretación legible

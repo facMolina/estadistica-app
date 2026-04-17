@@ -34,8 +34,8 @@ class GroupedData:
         self.frequencies = frequencies
         self.k = len(intervals)
         self.n = sum(frequencies)
-        # Puntos medios
-        self.xi = [(a + b) / 2 for a, b in intervals]
+        # Marcas de clase (centros de intervalo)
+        self.ci = [(a + b) / 2 for a, b in intervals]
         # Anchos de clase
         self.hi = [b - a for a, b in intervals]
 
@@ -45,28 +45,44 @@ class GroupedData:
 
     def build_table(self) -> List[dict]:
         """
-        Retorna lista de filas con:
-          intervalo, xi, fi, fri, Fi, fi_xi, fi_xi2, Gi
-        Fi y Gi son frecuencias relativas acumuladas (0 a 1).
+        Retorna lista de filas con columnas en notación cátedra:
+          Li, Ls, Ci, fai, fi, Fai, Fi, Gai, Gi, Ci·fai, (Ci−x̄)²·fai
         """
+        # Media inline (necesaria para columna de varianza)
+        mu = (sum(self.ci[i] * self.frequencies[i] for i in range(self.k)) / self.n
+              if self.n > 0 else 0.0)
+
+        # Precomputar Gai (acumulada absoluta derecha) via pasada inversa
+        gai_list = []
+        cum_right = 0
+        for i in range(self.k - 1, -1, -1):
+            cum_right += self.frequencies[i]
+            gai_list.append(cum_right)
+        gai_list.reverse()
+
         rows = []
-        cum_fi = 0
+        cum_abs = 0
+        cum_rel = 0.0
         for i in range(self.k):
             a, b = self.intervals[i]
-            fi = self.frequencies[i]
-            xi = self.xi[i]
-            fri = fi / self.n if self.n > 0 else 0.0
-            cum_fi += fi
-            Fi = cum_fi / self.n if self.n > 0 else 0.0
+            fai = self.frequencies[i]
+            ci = self.ci[i]
+            fi = fai / self.n if self.n > 0 else 0.0
+            cum_abs += fai
+            cum_rel += fi
+            gi = gai_list[i] / self.n if self.n > 0 else 0.0
             rows.append({
-                "Intervalo": f"[{format_number(a)} – {format_number(b)})",
-                "xi": xi,
-                "fi": fi,
-                "fri": round(fri, 6),
-                "Fi": round(Fi, 6),
-                "Gi": round(1 - Fi + fri, 6),   # P(x >= a_i) = 1 - F(a_i-)
-                "fi·xi": round(fi * xi, 6),
-                "fi·xi²": round(fi * xi ** 2, 6),
+                "Li": a,
+                "Ls": b,
+                "Ci": ci,
+                "fai": fai,
+                "fi": round(fi, 6),
+                "Fai": cum_abs,
+                "Fi": round(cum_rel, 6),
+                "Gai": gai_list[i],
+                "Gi": round(gi, 6),
+                "Ci·fai": round(ci * fai, 6),
+                "(Ci−x̄)²·fai": round((ci - mu) ** 2 * fai, 6),
             })
         return rows
 
@@ -75,42 +91,42 @@ class GroupedData:
     # ------------------------------------------------------------------
 
     def mean(self) -> CalcResult:
-        """x̄ = Σ(fi·xi) / n"""
+        """x̄ = Σ(fai·Ci) / n"""
         n = self.n
         builder = StepBuilder("Media")
         builder.add_step(
-            desc="La media para datos agrupados se calcula usando los puntos medios xi = (a+b)/2",
-            latex=r"\bar{x} = \frac{\sum f_i \cdot x_i}{n}",
+            desc="La media para datos agrupados se calcula usando las marcas de clase Ci = (Li+Ls)/2",
+            latex=r"\bar{x} = \frac{\sum f_{ai} \cdot C_i}{n}",
             level_min=1,
         )
 
-        # Tabla de fi·xi
-        sum_fixi = 0.0
+        # Tabla de fai·Ci
+        sum_fai_ci = 0.0
         for i in range(self.k):
             a, b = self.intervals[i]
-            fi = self.frequencies[i]
-            xi = self.xi[i]
-            fixi = fi * xi
-            sum_fixi += fixi
+            fai = self.frequencies[i]
+            ci = self.ci[i]
+            fai_ci = fai * ci
+            sum_fai_ci += fai_ci
             builder.add_step(
-                desc=f"x_{i+1} = ({format_number(a)}+{format_number(b)})/2 = {format_number(xi)}"
-                     f"  →  f_{i+1}·x_{i+1} = {fi}·{format_number(xi)} = {format_number(fixi)}",
-                latex=rf"f_{{{i+1}}} \cdot x_{{{i+1}}} = {fi} \cdot {format_number(xi)} = {format_number(fixi)}",
-                result=fixi,
+                desc=f"C_{i+1} = ({format_number(a)}+{format_number(b)})/2 = {format_number(ci)}"
+                     f"  →  fa_{i+1}·C_{i+1} = {fai}·{format_number(ci)} = {format_number(fai_ci)}",
+                latex=rf"f_{{a{i+1}}} \cdot C_{{{i+1}}} = {fai} \cdot {format_number(ci)} = {format_number(fai_ci)}",
+                result=fai_ci,
                 level_min=3,
             )
 
         builder.add_step(
-            desc=f"Σ fi·xi = {format_number(sum_fixi)}  |  n = {n}",
-            latex=rf"\sum f_i \cdot x_i = {format_number(sum_fixi)}",
-            result=sum_fixi,
+            desc=f"Σ fai·Ci = {format_number(sum_fai_ci)}  |  n = {n}",
+            latex=rf"\sum f_{{ai}} \cdot C_i = {format_number(sum_fai_ci)}",
+            result=sum_fai_ci,
             level_min=2,
         )
 
-        mu = sum_fixi / n if n > 0 else 0.0
+        mu = sum_fai_ci / n if n > 0 else 0.0
         builder.add_step(
-            desc=f"x̄ = {format_number(sum_fixi)} / {n} = {format_number(mu)}",
-            latex=rf"\bar{{x}} = \frac{{{format_number(sum_fixi)}}}{{{n}}} = {format_number(mu)}",
+            desc=f"x̄ = {format_number(sum_fai_ci)} / {n} = {format_number(mu)}",
+            latex=rf"\bar{{x}} = \frac{{{format_number(sum_fai_ci)}}}{{{n}}} = {format_number(mu)}",
             result=mu,
             level_min=1,
         )
@@ -121,48 +137,48 @@ class GroupedData:
     # ------------------------------------------------------------------
 
     def _variance_components(self) -> Tuple[float, float]:
-        """Retorna (Sn², sum_fixi2) para reutilizar en varianza y desvio."""
+        """Retorna (Sn², sum_fai_ci2) para reutilizar en varianza y desvio."""
         mu = self.mean().final_value
         n = self.n
-        sum_fixi2 = sum(self.frequencies[i] * self.xi[i] ** 2 for i in range(self.k))
-        sn2 = sum_fixi2 / n - mu ** 2 if n > 0 else 0.0
-        return sn2, sum_fixi2
+        sum_fai_ci2 = sum(self.frequencies[i] * self.ci[i] ** 2 for i in range(self.k))
+        sn2 = sum_fai_ci2 / n - mu ** 2 if n > 0 else 0.0
+        return sn2, sum_fai_ci2
 
     def variance_n(self) -> CalcResult:
-        """Sn² = Σ(fi·xi²)/n − x̄²  (varianza poblacional)"""
+        """Sn² = Σ(fai·Ci²)/n − x̄²  (varianza poblacional)"""
         n = self.n
         mu = self.mean().final_value
         builder = StepBuilder("Varianza Sn²")
         builder.add_step(
             desc="Varianza poblacional (denominador n)",
-            latex=r"S_n^2 = \frac{\sum f_i \cdot x_i^2}{n} - \bar{x}^2",
+            latex=r"S_n^2 = \frac{\sum f_{ai} \cdot C_i^2}{n} - \bar{x}^2",
             level_min=1,
         )
 
-        sum_fixi2 = 0.0
+        sum_fai_ci2 = 0.0
         for i in range(self.k):
-            fi = self.frequencies[i]
-            xi = self.xi[i]
-            fixi2 = fi * xi ** 2
-            sum_fixi2 += fixi2
+            fai = self.frequencies[i]
+            ci = self.ci[i]
+            fai_ci2 = fai * ci ** 2
+            sum_fai_ci2 += fai_ci2
             builder.add_step(
-                desc=f"f_{i+1}·x_{i+1}² = {fi}·{format_number(xi)}² = {format_number(fixi2)}",
-                latex=rf"f_{{{i+1}}} \cdot x_{{{i+1}}}^2 = {fi} \cdot {format_number(xi)}^2 = {format_number(fixi2)}",
-                result=fixi2,
+                desc=f"fa_{i+1}·C_{i+1}² = {fai}·{format_number(ci)}² = {format_number(fai_ci2)}",
+                latex=rf"f_{{a{i+1}}} \cdot C_{{{i+1}}}^2 = {fai} \cdot {format_number(ci)}^2 = {format_number(fai_ci2)}",
+                result=fai_ci2,
                 level_min=3,
             )
 
         builder.add_step(
-            desc=f"Σ fi·xi² = {format_number(sum_fixi2)}",
-            latex=rf"\sum f_i \cdot x_i^2 = {format_number(sum_fixi2)}",
-            result=sum_fixi2,
+            desc=f"Σ fai·Ci² = {format_number(sum_fai_ci2)}",
+            latex=rf"\sum f_{{ai}} \cdot C_i^2 = {format_number(sum_fai_ci2)}",
+            result=sum_fai_ci2,
             level_min=2,
         )
-        sn2 = sum_fixi2 / n - mu ** 2 if n > 0 else 0.0
+        sn2 = sum_fai_ci2 / n - mu ** 2 if n > 0 else 0.0
         builder.add_step(
-            desc=f"Sn² = {format_number(sum_fixi2)}/{n} − {format_number(mu)}² = "
-                 f"{format_number(sum_fixi2/n)} − {format_number(mu**2)} = {format_number(sn2)}",
-            latex=rf"S_n^2 = \frac{{{format_number(sum_fixi2)}}}{{{n}}} - {format_number(mu)}^2 = {format_number(sn2)}",
+            desc=f"Sn² = {format_number(sum_fai_ci2)}/{n} − {format_number(mu)}² = "
+                 f"{format_number(sum_fai_ci2/n)} − {format_number(mu**2)} = {format_number(sn2)}",
+            latex=rf"S_n^2 = \frac{{{format_number(sum_fai_ci2)}}}{{{n}}} - {format_number(mu)}^2 = {format_number(sn2)}",
             result=sn2,
             level_min=1,
         )
@@ -396,13 +412,13 @@ class GroupedData:
     # ------------------------------------------------------------------
 
     def median(self) -> CalcResult:
-        """Me = L + h · (n/2 − F_{i-1}) / fi  (interpolacion lineal)"""
+        """Me = Li + h · (n/2 − Fai_{i-1}) / fai  (interpolacion lineal)"""
         n = self.n
         target = n / 2.0
         builder = StepBuilder("Mediana")
         builder.add_step(
             desc="La mediana es el valor que divide al 50% de las observaciones: buscar intervalo donde n/2 cae en la acumulada",
-            latex=r"Me = L + h \cdot \frac{n/2 - F_{i-1}}{f_i}",
+            latex=r"Me = Li + h \cdot \frac{n/2 - F_{a(i-1)}}{f_{ai}}",
             level_min=1,
         )
         builder.add_step(
@@ -417,19 +433,19 @@ class GroupedData:
             cum_curr = cum_prev + self.frequencies[i]
             if cum_curr >= target:
                 h = b - a
-                fi = self.frequencies[i]
-                me = a + h * (target - cum_prev) / fi if fi > 0 else a
+                fai = self.frequencies[i]
+                me = a + h * (target - cum_prev) / fai if fai > 0 else a
                 builder.add_step(
                     desc=f"La mediana esta en el intervalo [{format_number(a)}, {format_number(b)}): "
-                         f"F acumulada antes = {cum_prev}, fi = {fi}",
+                         f"Fai antes = {cum_prev}, fai = {fai}",
                     latex=rf"\text{{Intervalo mediano: }} [{format_number(a)},\ {format_number(b)})",
                     level_min=2,
                 )
                 builder.add_step(
                     desc=(f"Me = {format_number(a)} + {format_number(h)} · "
-                          f"({format_number(target)} − {cum_prev}) / {fi} = {format_number(me)}"),
+                          f"({format_number(target)} − {cum_prev}) / {fai} = {format_number(me)}"),
                     latex=(rf"Me = {format_number(a)} + {format_number(h)} \cdot "
-                           rf"\frac{{{format_number(target)} - {cum_prev}}}{{{fi}}} = {format_number(me)}"),
+                           rf"\frac{{{format_number(target)} - {cum_prev}}}{{{fai}}} = {format_number(me)}"),
                     result=me,
                     level_min=1,
                 )
@@ -445,7 +461,7 @@ class GroupedData:
 
     def fractile(self, alpha: float) -> CalcResult:
         """
-        x(α) = L + h · (n·α − F_{i-1}) / fi
+        x(α) = Li + h · (n·α − Fai_{i-1}) / fai
         donde α ∈ (0,1) es la fraccion acumulada buscada.
         """
         n = self.n
@@ -453,7 +469,7 @@ class GroupedData:
         builder = StepBuilder(f"Fractil x({format_number(alpha)})")
         builder.add_step(
             desc=f"El fractil x(α) es el valor tal que F(x) = α = {format_number(alpha)} ({format_number(alpha*100)}% de los datos estan por debajo)",
-            latex=rf"x(\alpha) = L + h \cdot \frac{{n \cdot \alpha - F_{{i-1}}}}{{f_i}}",
+            latex=rf"x(\alpha) = Li + h \cdot \frac{{n \cdot \alpha - F_{{a(i-1)}}}}{{f_{{ai}}}}",
             level_min=1,
         )
         builder.add_step(
@@ -468,19 +484,19 @@ class GroupedData:
             cum_curr = cum_prev + self.frequencies[i]
             if cum_curr >= target:
                 h = b - a
-                fi = self.frequencies[i]
-                frac = a + h * (target - cum_prev) / fi if fi > 0 else a
+                fai = self.frequencies[i]
+                frac = a + h * (target - cum_prev) / fai if fai > 0 else a
                 builder.add_step(
                     desc=f"El fractil esta en [{format_number(a)}, {format_number(b)}): "
-                         f"F acumulada antes = {cum_prev}, fi = {fi}",
+                         f"Fai antes = {cum_prev}, fai = {fai}",
                     latex=rf"\text{{Intervalo: }} [{format_number(a)},\ {format_number(b)})",
                     level_min=2,
                 )
                 builder.add_step(
                     desc=(f"x({format_number(alpha)}) = {format_number(a)} + {format_number(h)} · "
-                          f"({format_number(target)} − {cum_prev}) / {fi} = {format_number(frac)}"),
+                          f"({format_number(target)} − {cum_prev}) / {fai} = {format_number(frac)}"),
                     latex=(rf"x({format_number(alpha)}) = {format_number(a)} + {format_number(h)} \cdot "
-                           rf"\frac{{{format_number(target)} - {cum_prev}}}{{{fi}}} = {format_number(frac)}"),
+                           rf"\frac{{{format_number(target)} - {cum_prev}}}{{{fai}}} = {format_number(frac)}"),
                     result=frac,
                     level_min=1,
                 )

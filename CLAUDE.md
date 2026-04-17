@@ -90,11 +90,11 @@ UI components (ui/components/)        ← render steps, graphs, table
 |-----------|--------|
 | Step engine (`calculation/`) | Done |
 | Binomial, Poisson, Pascal, Hipergeometrico, Hiper-Pascal | Done |
-| Datos Agrupados (mean, variance, CV, median, fractile, ogive) | Done |
-| Probabilidad: two events + Bayes/Total Probability | Done |
-| NL parser — all 3 modes + 5 discrete models | Done |
-| Streamlit UI — 3 modes, 4 tabs for distributions | Done |
+| Datos Agrupados (mean, variance, CV, median, fractile, ogive). Frequency table in cátedra notation (Li, Ls, Ci, fai, fi, Fai, Fi, Gai, Gi, Ci·fai, (Ci−x̄)²·fai) | Done |
+| Probabilidad: generic two-event solver (any combination of P(A), P(B), P(A∩B), P(A∪B), P(A'∩B'), P(A\|B), P(B\|A)) + Bayes/Total Probability | Done |
+| NL parser — all 4 modes (distributions, datos agrupados, probabilidad de eventos, Bayes) + 5 discrete + NL probability extraction | Done |
+| Streamlit UI — 4 modes, 4 tabs for distributions | Done |
 | CLI with Claude API | Done |
-| Continuous models (Normal, Exponential, Weibull, etc.) | Sprint 6 — next |
+| Continuous models (Normal, Log-Normal, Exponential, Gamma/Erlang, Weibull, Gumbel Max/Min, Pareto, Uniforme) | Done (Sprint 6) |
 | Approximations engine + TCL | Sprint 7 — pending |
 | Guide PDF exercise mode | Sprint 9 — pending |

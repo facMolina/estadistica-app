@@ -75,28 +75,28 @@ def build_histogram(intervals: List[Tuple[float, float]], frequencies: List[int]
     n = sum(frequencies)
     midpoints = [(a + b) / 2 for a, b in intervals]
     widths = [b - a for a, b in intervals]
-    fris = [fi / n if n > 0 else 0 for fi in frequencies]
+    fi_vals = [fai / n if n > 0 else 0 for fai in frequencies]
 
     fig = go.Figure()
     fig.add_trace(go.Bar(
         x=midpoints,
-        y=fris,
+        y=fi_vals,
         width=widths,
         marker_color="steelblue",
         marker_line_color="white",
         marker_line_width=1.5,
-        name="fri",
-        customdata=[[a, b, fi] for (a, b), fi in zip(intervals, frequencies)],
+        name="fi",
+        customdata=[[a, b, fai] for (a, b), fai in zip(intervals, frequencies)],
         hovertemplate=(
             "[%{customdata[0]}, %{customdata[1]})<br>"
-            "fi = %{customdata[2]}<br>"
-            "fri = %{y:.4f}<extra></extra>"
+            "fai = %{customdata[2]}<br>"
+            "fi = %{y:.4f}<extra></extra>"
         ),
     ))
     fig.update_layout(
         title=title,
         xaxis_title="x",
-        yaxis_title="Frecuencia relativa (fri)",
+        yaxis_title="Frecuencia relativa (fi)",
         template="plotly_white",
         height=400,
         bargap=0,
