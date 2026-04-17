@@ -103,6 +103,26 @@ StepBuilder → add_step(level_min=N) → build() → CalcResult
 
 **Reference implementation**: `models/discrete/binomial.py` — use it as the template. Completed discrete models: Binomial, Poisson, Pascal, Hipergeometrico, Hiper-Pascal.
 
+## Compound problems (chained distributions)
+
+Some guide exercises require chaining two distributions. These are dispatched via
+`calculation/compound_solver.py::solve_compound(config)` and rendered by
+`ui/components/compound_ui.py::render_compound_main(solution, detail_level)`.
+
+Current compound types:
+- **`hiper_binomial`**: Hipergeométrico (sampling per box) → Binomial (across boxes).
+  Config keys: `box_N`, `box_R`, `sample_n`, `num_boxes`, `reject_r`, `query_type`, `query_r`.
+- **`pascal_conditional`**: Pascal with conditional probability P(N>query | N>condition).
+  Config keys: `r_success`, `p`, `condition_n`, `query_n`.
+
+Detection: `NLParser._detect_compound()` runs in parse step 0.5 (between cátedra bypass
+and mode detection) and returns `status: "compound"` with the config dict.
+
+Adding a new compound type:
+1. Implement `solve_<name>(config)` in `compound_solver.py`.
+2. Add the dispatch branch in `solve_compound()`.
+3. Extend `_detect_compound()` with a new `_try_<name>()` method in `nl_parser.py`.
+
 ## Useful utilities in `calculation/`
 
 - `combinatorics.py`: `comb(n,r)` (cached), `comb_with_steps(n,r)` → `CalcResult` with full factorial breakdown.
@@ -130,6 +150,7 @@ StepBuilder → add_step(level_min=N) → build() → CalcResult
 | **2** | Topic I: Grouped data statistics (mean, variance, CV, median, fractile, ogive) | **DONE** (2026-04-14) |
 | **3** | Topic II: Classical probability, conditional, Bayes | **DONE** (2026-04-15) |
 | **6** | Continuous models: Normal, Log-Normal, Exponential, Gamma/Erlang, Weibull, Uniform, Gumbel Min/Max, Pareto | **DONE** (2026-04-15) |
+| **—** | Compound problems (hiper+binomial, pascal conditional) | **DONE** (2026-04-17) |
 | **7** | Approximations engine + TCL | pending |
 | **9** | Guide mode: parse "tema X ej Y" → read PDF → NL parser | pending |
 | **10** | Polish, Multinomial, full test suite | pending |
@@ -222,6 +243,17 @@ Proceso con 1% de defectuosas, muestra de 10, encontrar alguna   → cdf_right, 
 Se lanza una moneda 15 veces, exactamente 4 caras                → probability, n=15, p=0.5, r=4
 Moneda 20 veces, al menos 8 caras                                → cdf_right,  n=20, p=0.5, r=8
 Proceso con 10% defectuosas, muestra de 15, 2 o menos           → cdf_left,   n=15, p=0.1, r=2
+
+# Problemas compuestos (retornan status="compound")
+15 cajas de 10 piezas con 2 defectuosas. De cada caja se toma muestra de 2,
+se rechaza si hay alguna defectuosa. P(se rechacen menos de 3 cajas)
+  → compound_type="hiper_binomial", box_N=10, box_R=2, sample_n=2,
+    num_boxes=15, query_type="cdf_left", query_r=2
+
+Pedido de 20 piezas buenas, 10% defectuosas. Luego de fabricar 25 piezas
+no se había alcanzado. P(necesitar más de 30 piezas)
+  → compound_type="pascal_conditional", r_success=20, p=0.9,
+    condition_n=25, query_n=30
 ```
 
 ### Patrones clave en el parser (no obvios)
