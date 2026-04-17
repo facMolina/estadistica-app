@@ -26,6 +26,7 @@ from ui.components.continuous_ui import (
     render_continuous_main,
 )
 from ui.components.compound_ui import render_compound_main
+from ui.components.approximations_ui import render_approximations_tab
 from calculation.statistics_common import format_number
 from config.settings import SESSION_CONFIG_PATH
 from interpreter.streamlit_interpreter import interpret_turn, apply_sc_to_session
@@ -412,8 +413,8 @@ except ValueError as e:
 # ---------------------------------------------------------------------------
 # Tabs principales (Modelos de Probabilidad)
 # ---------------------------------------------------------------------------
-tab_calc, tab_chars, tab_table, tab_graphs = st.tabs([
-    "Calculo Paso a Paso", "Caracteristicas", "Tabla de Distribucion", "Graficos",
+tab_calc, tab_chars, tab_table, tab_graphs, tab_approx = st.tabs([
+    "Calculo Paso a Paso", "Caracteristicas", "Tabla de Distribucion", "Graficos", "Aproximaciones",
 ])
 
 
@@ -484,3 +485,30 @@ with tab_graphs:
     st.subheader(f"Graficos — {modelo}({title_params})")
     highlight = int(r_val) if query_type in ("probability", "cdf_left", "cdf_right") else None
     render_graphs(model.full_table(), f"{modelo}({title_params})", highlight_r=highlight)
+
+
+with tab_approx:
+    st.subheader(f"Aproximaciones — {modelo}({title_params})")
+    # Mapear modelo + inputs actuales a params/query_params para el motor de aproximaciones
+    _approx_params: dict = {}
+    if modelo == "Binomial":
+        _approx_params = {"n": int(n), "p": float(p)}
+    elif modelo == "Poisson":
+        _approx_params = {"m": float(m)}
+    elif modelo == "Hipergeometrico":
+        _approx_params = {"N": int(N_h), "R": int(R_h), "n": int(n_h)}
+    # Pascal y Hiper-Pascal: sin aproximaciones canónicas implementadas actualmente
+
+    _approx_qp: dict = {}
+    if query_type in ("probability", "cdf_left", "cdf_right"):
+        _approx_qp = {"r": int(r_val)}
+    elif query_type == "range":
+        _approx_qp = {"r": int(r_a), "a": int(r_a), "b": int(r_b)}
+
+    if not _approx_params or not _approx_qp:
+        st.info(
+            "No hay aproximaciones aplicables para esta combinación de modelo y tipo de consulta. "
+            "Las aproximaciones requieren una consulta puntual o acumulada (P(r), F(r), G(r), rango)."
+        )
+    else:
+        render_approximations_tab(modelo, _approx_params, query_type, _approx_qp, detail_level)

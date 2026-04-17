@@ -26,6 +26,8 @@ ENV/
 # OS
 .DS_Store
 Thumbs.db
+# macOS AppleDouble metadata files (creados al copiar desde Mac)
+._*
 
 # Session config (generado en runtime)
 APP/session_config.json

@@ -249,12 +249,15 @@ def render_continuous_main(cfg: dict, detail_level: int):
         st.error(f"Parámetros inválidos: {model_error}")
         return
 
-    tab_calc, tab_chars, tab_graph = st.tabs([
-        "Cálculo Paso a Paso", "Características", "Gráfico",
+    tab_calc, tab_chars, tab_graph, tab_approx = st.tabs([
+        "Cálculo Paso a Paso", "Características", "Gráfico", "Aproximaciones",
     ])
 
     with tab_calc:
         _dispatch(model, modelo, title_params, query_type, qparams, detail_level)
+
+    with tab_approx:
+        _render_approximations(model, modelo, query_type, qparams, detail_level)
 
     with tab_chars:
         st.subheader(f"Características — {modelo}({title_params})")
@@ -345,3 +348,42 @@ def _dispatch(model, modelo, title_params, query_type, qparams, detail_level):
 
     except Exception as exc:
         st.error(f"Error en el cálculo: {exc}")
+
+
+# ---------------------------------------------------------------------------
+# Aproximaciones tab (solo Gamma está implementada)
+# ---------------------------------------------------------------------------
+
+def _render_approximations(model, modelo: str, query_type: str, qparams: dict, detail_level: int):
+    """Renderiza pestaña de aproximaciones para modelos continuos."""
+    from ui.components.approximations_ui import render_approximations_tab
+
+    st.subheader(f"Aproximaciones — {modelo}")
+
+    if modelo != "Gamma":
+        st.info(
+            "Aproximaciones continuas implementadas: Gamma → Normal (Wilson-Hilferty).\n\n"
+            "Las demás distribuciones continuas no tienen aproximación canónica estándar."
+        )
+        return
+
+    params = {"r": model.r, "lam": model.lam}
+
+    # Normalizar query_params al formato del approximator
+    approx_qp: dict = {}
+    if query_type in ("cdf_left", "cdf_right"):
+        x = qparams.get("x")
+        if x is None:
+            st.info("Seleccioná un tipo de consulta F(x) o G(x) para ver aproximaciones.")
+            return
+        approx_qp = {"x": x}
+    elif query_type == "range":
+        a, b = qparams.get("a"), qparams.get("b")
+        if a is None or b is None:
+            return
+        approx_qp = {"x": b, "a": a, "b": b}
+    else:
+        st.info("Wilson-Hilferty está disponible para F(x), G(x) y rangos P(a ≤ X ≤ b).")
+        return
+
+    render_approximations_tab(modelo, params, query_type, approx_qp, detail_level)

@@ -2,6 +2,16 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Workflow rule — leave the app running
+
+After finishing any feature or sprint, **always leave Streamlit running in the background** so the user can test immediately. Default port `8501`; if taken, try `8502+` and report which URL.
+
+```bat
+C:\Python314\python -m streamlit run app_streamlit.py --server.headless true --server.port 8501
+```
+
+Report the URL (`http://localhost:8501`) in the final message. Do not kill the process at the end of the turn.
+
 ## What this project is
 
 A Python app that solves Statistics exercises (UADE - Ing. Sergio Anibal Dopazo) showing the **full step-by-step workings** of each calculation. Two modes:
@@ -123,6 +133,44 @@ Adding a new compound type:
 2. Add the dispatch branch in `solve_compound()`.
 3. Extend `_detect_compound()` with a new `_try_<name>()` method in `nl_parser.py`.
 
+## Approximations engine (Sprint 7)
+
+Module: `approximations/approximator.py`. Entry point: `try_approximations(model_name, params, query_type, query_params) -> list[ApproximationResult]`.
+
+Each element returned is an `ApproximationResult` dataclass with: `from_model`, `to_model`, `condition_met: bool`, `condition_str`, `target_params`, `target_params_str`, `approx_value`, `exact_value`, `abs_error`, `calc_result` (full step-by-step `CalcResult`), and a `rel_error_pct` property.
+
+**Important**: all applicable approximations are returned regardless of whether the condition is met — the UI shows a green ✅ / orange ⚠️ badge so the student can see what the error would be when applying an approximation outside its safe range.
+
+Implemented approximations:
+
+| From | To | Condition | Notes |
+|------|----|-----------|-------|
+| Hipergeometrico | Binomial | `n/N ≤ 0.01` | `p = R/N`, same `n` |
+| Binomial | Normal | `np ≥ 10 ∧ n(1−p) ≥ 10` | `μ=np`, `σ=√(np(1−p))`, continuity correction ±0.5 |
+| Binomial | Poisson | `p ≤ 0.005` | `m = np` |
+| Poisson | Normal | `m ≥ 15` | `μ=m`, `σ=√m`, continuity correction ±0.5 |
+| Gamma | Normal | always applicable | Wilson-Hilferty: `Y = (Xλ/r)^(1/3) ~ N(1−1/(9r), 1/(9r))` |
+
+Continuity correction is applied via `_binomial_normal_query(mu, sigma, query_type, r, query_params)` — used by both Bi→N and Po→N. Query types supported: `probability`, `cdf_left`, `cdf_right`, `range`.
+
+**UI**: `ui/components/approximations_ui.py::render_approximations_tab(model_name, params, query_type, query_params, detail_level)`. Renders, per approximation: condition evaluated, target params, 3 metrics (approx/exact/error + relative %), and an expander with full step-by-step.
+
+Integration:
+- Discrete flow: 5th tab in `app_streamlit.py`. Maps current `modelo` + sidebar inputs to `params` and `query_params` dicts before calling the engine.
+- Continuous flow: 4th tab added in `continuous_ui.py::render_continuous_main()`. Only Gamma has an approximation; other continuous models show an informational message.
+
+**Tests**: `tests/test_approximations.py` (standalone, no pytest required). Run from `APP/`:
+```bat
+C:\Python314\python tests/test_approximations.py
+```
+Expected: 7/7 OK. Key verified values: `Fg(20/4;0.3)=0.8488` (guide value) via Wilson-Hilferty, Bi(100,0.6)→Normal+cc, Bi(200,0.003)→Poisson, Po(25)→Normal+cc, Hiper(1000,50,5)→Binomial, Gamma(r=30)→N (WH mejora a r grande).
+
+Adding a new approximation:
+1. Write `_origen_to_destino(params, query_type, query_params) -> Optional[ApproximationResult]` in `approximator.py`, using `StepBuilder` for the `calc_result`.
+2. Add the dispatch branch in `try_approximations()`.
+3. If origin is a continuous model not yet listed, extend `_render_approximations()` in `continuous_ui.py` to map model params → approximator params.
+4. Write a test in `tests/test_approximations.py` asserting `approx_value` is close to `exact_value` within a tolerance.
+
 ## Useful utilities in `calculation/`
 
 - `combinatorics.py`: `comb(n,r)` (cached), `comb_with_steps(n,r)` → `CalcResult` with full factorial breakdown.
@@ -150,10 +198,10 @@ Adding a new compound type:
 | **2** | Topic I: Grouped data statistics (mean, variance, CV, median, fractile, ogive) | **DONE** (2026-04-14) |
 | **3** | Topic II: Classical probability, conditional, Bayes | **DONE** (2026-04-15) |
 | **6** | Continuous models: Normal, Log-Normal, Exponential, Gamma/Erlang, Weibull, Uniform, Gumbel Min/Max, Pareto | **DONE** (2026-04-15) |
-| **—** | Compound problems (hiper+binomial, pascal conditional) | **DONE** (2026-04-17) |
-| **7** | Approximations engine + TCL | pending |
+| **—** | Compound problems (hiper+binomial, pascal conditional) | DONE (2026-04-17) |
+| **7** | Approximations engine (Hiper→Bi, Bi→N cc, Bi→Po, Po→N cc, Gamma→N Wilson-Hilferty) + 7 tests + UI tab | **DONE (2026-04-17)** |
 | **9** | Guide mode: parse "tema X ej Y" → read PDF → NL parser | pending |
-| **10** | Polish, Multinomial, full test suite | pending |
+| **10** | TCL (sum of independent RVs), Multinomial, full test suite | pending |
 
 ## Model formulas quick reference
 

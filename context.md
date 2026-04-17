@@ -1,6 +1,6 @@
 # Contexto del Proyecto: Calculadora de Estadistica con Paso a Paso
 
-Ultima actualizacion: 2026-04-17 (Problemas compuestos + expansiones del parser NL)
+Ultima actualizacion: 2026-04-17 (Sprint 7: Motor de aproximaciones + UI)
 
 ---
 
@@ -8,7 +8,7 @@ Ultima actualizacion: 2026-04-17 (Problemas compuestos + expansiones del parser 
 
 Una aplicacion en Python/Streamlit para resolver ejercicios de Estadistica General (UADE) mostrando el **desarrollo completo paso a paso** de cada calculo. Tres modos de uso:
 
-1. **Modelos de Probabilidad**: selector Discreto/Continuo. Discretos (Binomial, Poisson, Pascal, Hipergeometrico, Hiper-Pascal): 4 tabs — calculo, caracteristicas, tabla completa, graficos. Continuos (Normal, Log-Normal, Exponencial, Gamma, Weibull, Gumbel Max/Min, Pareto, Uniforme): 3 tabs — calculo, caracteristicas, curva de densidad sombreada.
+1. **Modelos de Probabilidad**: selector Discreto/Continuo. Discretos (Binomial, Poisson, Pascal, Hipergeometrico, Hiper-Pascal): 5 tabs — calculo, caracteristicas, tabla completa, graficos, aproximaciones. Continuos (Normal, Log-Normal, Exponencial, Gamma, Weibull, Gumbel Max/Min, Pareto, Uniforme): 4 tabs — calculo, caracteristicas, curva de densidad sombreada, aproximaciones.
 2. **Datos Agrupados**: ingreso de intervalos y frecuencias, calcula media, varianza, CV, mediana, fractiles, ogiva e histograma.
 3. **Probabilidad**: dos sub-modos — operaciones con dos eventos (solver genérico `solve_two_events()` que deriva P(A), P(B), P(A∩B) desde cualquier combinación conocida) y Bayes/Probabilidad Total con tabla completa.
 4. **Problemas Compuestos** (render especial, no es un modo del selector): dispara automáticamente cuando el parser NL detecta distribuciones encadenadas — Hipergeométrico→Binomial (cajas) y Pascal condicional. Renderiza cada paso con su propio `CalcResult` paso a paso.
@@ -201,8 +201,15 @@ APP/
 |   |   |-- probability_ui.py   # Probabilidad: dos eventos (solver genérico) + Bayes
 |   |   |-- continuous_ui.py    # Modelos continuos: sidebar + main (tabs calc/chars/grafico)
 |   |   |-- compound_ui.py      # HECHO — render_compound_main() para problemas compuestos
+|   |   |-- approximations_ui.py# HECHO (Sprint 7) — render_approximations_tab()
 |
-|-- approximations/             # PENDIENTE (Sprint 7)
+|-- approximations/             # HECHO (Sprint 7)
+|   |-- __init__.py             # reexporta ApproximationResult y try_approximations
+|   |-- approximator.py         # Motor: Hiper→Bi, Bi→N (cc ±0.5), Bi→Po, Po→N (cc ±0.5), Gamma→N (Wilson-Hilferty)
+|
+|-- tests/
+|   |-- test_approximations.py  # 7 tests standalone (no pytest requerido). Corre con `python tests/test_approximations.py`
+|
 |-- guide_index/                # PENDIENTE (Sprint 9)
 ```
 
@@ -219,30 +226,18 @@ APP/
 | **2** | Datos Agrupados (Tema I): media, varianza, CV, mediana, fractiles, histograma, ogiva | HECHO (2026-04-15) |
 | **3** | Probabilidad (Tema II): dos eventos + Bayes/Prob. Total | HECHO (2026-04-15) |
 | **6** | Modelos continuos: Normal, Log-Normal, Exponencial, Gamma/Erlang, Weibull, Gumbel, Pareto, Uniforme | HECHO (2026-04-15) |
-| **—** | Problemas Compuestos (Hipergeometrico+Binomial, Pascal condicional) | **HECHO (2026-04-17)** |
-| **7** | Motor de aproximaciones + TCL | pendiente |
+| **—** | Problemas Compuestos (Hipergeometrico+Binomial, Pascal condicional) | HECHO (2026-04-17) |
+| **7** | Motor de aproximaciones (Hiper→Bi, Bi→N, Bi→Po, Po→N, Gamma→N Wilson-Hilferty) + tests + UI | **HECHO (2026-04-17)** |
 | **9** | Modo guia: "tema X ej Y" → leer PDF → NL parser | pendiente |
-| **10** | Pulido, Multinomial, test suite completo | pendiente |
+| **10** | TCL (suma de VA independientes), Multinomial, test suite completo | pendiente |
 
 ---
 
 ## Que queda pendiente
 
-### Sprint 7: Aproximaciones
-
-| De | A | Condicion |
-|----|---|-----------|
-| Hipergeometrico | Binomial | n/N ≤ 0.01 |
-| Binomial | Normal | np≥10 y n(1-p)≥10, correccion ±0.5 |
-| Binomial | Poisson | p≤0.005, m=np |
-| Poisson | Normal | m≥15, correccion ±0.5 |
-| Gamma | Normal | Wilson-Hilferty |
-
-Test: Fg(20/4;0.3) = Gpo(4/6) = 0.8488
-
 ### Sprints 9, 10
 - Sprint 9: El usuario escribe "tema III ejercicio 8" → leer enunciado del PDF con PyMuPDF → NL parser → resolver
-- Sprint 10: Multinomial, test suite contra todos los ejercicios de la guia
+- Sprint 10: TCL (suma de N VA independientes), Multinomial, test suite automatizado contra todos los ejercicios de la guia
 
 ---
 
@@ -302,3 +297,39 @@ Al recibir `"compound"`: el solver `solve_compound(config)` arma la solución (l
 6. **Sprint 6 continuo**: `ContinuousBase` en `models/continuous/_base.py` provee defaults para `cdf_right`, `std_dev`, `cv`, `partial_expectation_left` (scipy quad), `fractile` (ppf). Cada modelo guarda `self._dist` scipy. La UI tiene 3 tabs (Calculo, Caracteristicas, Grafico). `build_density_plot()` en `graph_builder.py` sombrea el area segun query_type. El sidebar Modelos de Probabilidad tiene toggle Discreto/Continuo.
 7. **Problemas compuestos desacoplados**: el parser (`_detect_compound()` en `nl_parser.py`) solo retorna config; el solver (`compound_solver.py`) no depende del parser. Para agregar un tipo nuevo: implementar `solve_<name>()`, agregar branch en `solve_compound()`, y agregar `_try_<name>()` al parser. La UI (`compound_ui.py`) es genérica — cualquier solver que devuelva `{title, description?, steps: [{num, title, description, notation, calc_result, result_label, result_value}], conditional?, final_value}` se renderiza sin tocar UI.
 8. **`solve_two_events()` generico**: `probability/basic.py` expone un solver iterativo que acepta cualquier combinación de datos conocidos (P(A), P(B), P(A∩B), P(A∪B), P(A'∩B'), P(A|B), P(B|A)) y deriva el resto paso a paso. El UI `probability_ui.py` usa multiselect para que el usuario elija qué datos aporta.
+9. **Aproximaciones como tab opcional, no reemplazo**: la pestaña "Aproximaciones" corre después del cálculo exacto y muestra **todas** las aproximaciones canónicas aplicables al modelo + consulta actual, con su condición evaluada (verde ✅ si cumple, naranja ⚠️ si no — pero igual se calcula y muestra el error). Cada aproximación devuelve `ApproximationResult` con `approx_value`, `exact_value`, `abs_error`, `rel_error_pct` y un `CalcResult` paso a paso. La corrección de continuidad ±0.5 está incluida en Bi→Normal y Po→Normal. Gamma→Normal usa Wilson-Hilferty: Y=(Xλ/r)^(1/3) ~ N(1−1/(9r), 1/(9r)). Para agregar una nueva aproximación: escribir `_origen_to_destino()` en `approximations/approximator.py`, agregar el branch en `try_approximations()`, escribir el test en `tests/test_approximations.py`.
+
+---
+
+## Sprint 7: motor de aproximaciones
+
+Módulo: `approximations/approximator.py`. Entry point: `try_approximations(model_name, params, query_type, query_params) -> list[ApproximationResult]`.
+
+Aproximaciones implementadas:
+
+| De | A | Condición | Técnica |
+|----|---|-----------|---------|
+| Hipergeométrico | Binomial | n/N ≤ 0.01 | p=R/N, mismo n |
+| Binomial | Normal | np≥10 y n(1−p)≥10 | μ=np, σ=√(np(1−p)), **corrección ±0.5** |
+| Binomial | Poisson | p ≤ 0.005 | m=np |
+| Poisson | Normal | m ≥ 15 | μ=m, σ=√m, **corrección ±0.5** |
+| Gamma | Normal | siempre (mejora con r grande) | Wilson-Hilferty: Y=(Xλ/r)^(1/3) ~ N(1−1/(9r), 1/(9r)) |
+
+Tests (`tests/test_approximations.py`, 7/7 OK):
+- `Fg(20/4;0.3)` exacto=0.8488 (valor de guía), WH=0.8497, err=8.6e-4
+- `Bi(100,0.6) P(X≤65)`: exacto=0.8697, Normal+cc=0.8692, err=4.5e-4
+- `Bi(200,0.003) P(X≥1)`: exacto=0.4517, Poisson=0.4512, err=4.9e-4
+- `Po(m=25) P(X≤27)`: exacto=0.7002, Normal+cc=0.6915, err=8.7e-3
+- `Hiper(1000,50,5) P(X≤2)`: exacto=0.9989, Binomial=0.9988, err=6.0e-5
+- `Gamma(r=30,lam=1) F(28)`: err=1.4e-4 (WH mejor con r grande)
+
+UI: `ui/components/approximations_ui.py::render_approximations_tab()` muestra, por cada aproximación aplicable:
+- Badge ✅/⚠️ en el título
+- Condición evaluada (verde/naranja)
+- Parámetros destino (μ, σ, m, p, etc.)
+- 3 métricas: valor aproximado, valor exacto, error absoluto + % relativo
+- Expander "Paso a paso" que renderiza el `CalcResult` al nivel de detalle actual
+
+Integración:
+- `app_streamlit.py` agrega 5ta tab "Aproximaciones" en modo discreto. Mapea `modelo` + inputs a params/query_params antes de llamar al motor.
+- `ui/components/continuous_ui.py::_render_approximations()` agrega 4ta tab en modo continuo. Solo Gamma tiene aproximación; las demás muestran mensaje informativo.
