@@ -2,6 +2,14 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## First step on every session
+
+Before doing anything else, **read `../README.md`**. It has the canonical
+instructions to prepare the environment and launch the app (`start.bat` on
+Windows, `./start.sh` on macOS/Linux) and troubleshooting for the most common
+failure modes. Treat it as the source of truth when the user asks how to run
+the app or when you need to start it as part of a task.
+
 ## Workflow rule — leave the app running
 
 After finishing any feature or sprint, **always leave Streamlit running in the background** so the user can test immediately. Default port `8501`; if taken, try `8502+` and report which URL.
@@ -171,6 +179,87 @@ Adding a new approximation:
 3. If origin is a continuous model not yet listed, extend `_render_approximations()` in `continuous_ui.py` to map model params → approximator params.
 4. Write a test in `tests/test_approximations.py` asserting `approx_value` is close to `exact_value` within a tolerance.
 
+## Modo guía PDF (Sprint 9)
+
+Módulo: `guide_index/indexer.py`. El usuario escribe `"tema III ejercicio 8"` en el intérprete NL y la app extrae el enunciado del PDF oficial (`GUIA_PATH`), lo pasa por el mismo `NLParser.parse()` y muestra el enunciado + resultado.
+
+Flujo:
+1. `NLParser._detect_guide_exercise(text)` corre como Paso 0.3 (entre cátedra bypass y compound). Matchea `(?:guia )?tema (romano|digito|palabra) (ejercicio|ej|problema|prob) N`. Retorna `{"status": "guide_exercise", "tema", "numero"}`.
+2. `interpreter/streamlit_interpreter.py::interpret_turn()`:
+   - Llama `load_or_build_index()` (lazy + cache en `guide_index/index.json`).
+   - `get_exercise(idx, tema, numero)` → `{tema, numero, text, resp, tema_title}` o `None`.
+   - Agrega un mensaje `role=assistant` al historial con `_format_enunciado(ex)` (Markdown).
+   - **Re-parsea** `ex["text"]` con el mismo `NLParser` — el enunciado del PDF entra al pipeline normal (cátedra → compound → modo → modelo → params → query).
+   - Si el re-parse falla (error/need_more_info), devuelve `nl_input_prefill: ex["text"]` para que la UI lo copie al text_area.
+   - El retorno siempre trae `enunciado_from_guide=True`, `tema`, `numero`, `enunciado_text`, `expected_resp` (via `_enrich()`).
+3. `app_streamlit.py`: muestra un expander `Tema X — Ejercicio N (de la guía)` en el main area cuando hay `st.session_state["last_guide_enunciado"]`. El text_area se pre-llena con el enunciado en follow-up/error.
+
+Indexer (`guide_index/indexer.py`):
+- `build_index(pdf_path)`: abre el PDF con PyMuPDF, limpia el header de cada página (`Ing. Sergio Aníbal Dopazo ... N de 36`), detecta los 7 `TEMA X -` headers en orden, acumula el body de cada tema y splitea ejercicios por regex `^(\d+)\)\s+`. Separa enunciado/Resp por `\n\s*Resp\s*:\s*`.
+- `load_or_build_index()`: lee `GUIA_INDEX_CACHE`; reconstruye si el mtime del PDF > mtime del cache o si el JSON está corrupto.
+- `get_exercise(idx, tema, numero)`: normaliza tema a romano mayúsculas (`"3"`, `"III"`, `"iii"`, `"tres"` → `"III"`).
+- `config.settings.resolve_guia_path()`: busca el PDF por glob si `GUIA_PATH` no existe (para lidiar con variantes NFD/NFC del nombre).
+
+Counts conocidos: Tema I=5, II=31, III=33, IV=27, V=27, VI=40, VII=17 (180 totales).
+
+Tests (`tests/test_guide_index.py`, 8/8 OK): smoke del indexer, contenido de Tema II ej 23, normalización de tema, errores para tema/número inválidos, detección del parser, persistencia del cache, end-to-end con `interpret_turn`, error para Tema IX inexistente.
+
+## Multinomial (discreto multivariado) — Sprint 10
+
+Modelo en `models/discrete/multinomial.py`. **No hereda** de `DiscreteModel` porque
+el "resultado" es un vector `r = (r1,…,rk)` con `sum(r)=n`, no un escalar.
+
+API:
+- `Multinomial(n, p_vector, labels=None)` — valida `sum(p)≈1`, `pi≥0`, `k≥2`.
+- `probability(r_vector) -> CalcResult` — fórmula completa con steps nivel 1/2/3.
+- `probability_value(r_vector) -> float` — fast path sin steps.
+- `mean_vector()`, `variance_vector()`, `covariance(i,j)` — todos devuelven `CalcResult`.
+- `marginal_binomial(i) -> Binomial(n, p_i)` (i 1-indexed).
+- `characteristics_summary() -> list[dict]` — tabla para UI.
+
+UI: `ui/components/multinomial_ui.py` con `st.data_editor` (columnas Categoría, pi, ri).
+Consultas: probabilidad conjunta, marginal, características. Se dispatchea desde
+`app_streamlit.py` cuando `modelo in _MULTIVARIATE_DISCRETE` sin entrar al flujo univariado.
+
+NL parser: en `nl_parser.py` se añadió `MODELO_PATTERNS["Multinomial"]`, extracción vectorial
+(`_P_LIST`, `_match_vector`), `_parse_multinomial` y el bypass `if model == "Multinomial"`.
+Verificado: `multinomial n=10 probabilidades 0.2;0.3;0.5 conteos 2;3;5` → P(2,3,5)=0.085050.
+
+## TCL / Suma de VA independientes — Sprint 10
+
+Módulo `tcl/sum_of_rvs.py`. Dados k componentes independientes con E/V conocidas,
+computa `S = Σ Xi` y aproxima `S ~ N(ΣμI·countI, ΣσI²·countI)` vía TCL.
+
+API:
+- `Component(name, mean, variance, count=1)` — `count` multiplica para k copias iid.
+- `SumOfRVs(components)` → `expected_value_raw/value()`, `variance_raw/()`, `std_dev_raw/()`.
+- `probability(query_type, **query_params)`: `'cdf_left'` (param `s`), `'cdf_right'` (s),
+  `'range'` (a,b), `'fractile'` (alpha) — todos devuelven `CalcResult` con
+  estandarización `Z = (s-μS)/σS` y `Φ(Z)` vía `scipy.stats.norm`.
+- `from_model_instances(models, counts, names)` — constructor desde instancias de modelos existentes.
+- `tcl_condition_met(threshold=30)` — heurística para k ≥ 30.
+
+UI: nuevo modo `"TCL / Suma de VA"` en el radio de `app_streamlit.py`.
+`ui/components/tcl_ui.py` usa `st.data_editor` (Nombre, E(Xi), V(Xi), Cantidad).
+
+NL parser: `_is_tcl` detecta keywords (`tcl`, `teorema central`, `suma de [k] variables`),
+`_parse_tcl` extrae componentes con patrón `k variables con media μ y varianza σ²` o
+`E(Xi)=μ, V(Xi)=σ²`. Consulta detectada vía regex: `S<=s`, `S>=s`, `entre a y b`, fractil.
+
+## Tests contra la guía — Sprint 10
+
+`tests/test_guide_corpus.py` (standalone) itera los 180 ejercicios del PDF y clasifica
+el resultado del parser en `complete`, `follow_up`, `error`. Genera `tests/coverage_report.md`
+con la lista de ejercicios que fallan (backlog para próximos sprints).
+
+Baseline Sprint 10: 31/180 complete (umbral del test: ≥25).
+Desglose por tema: I=5/5, II=2/31, III=17/33, IV=1/27, V=1/27, VI=2/40, VII=3/17.
+Tests incluidos: `test_parse_coverage`, `test_known_answers` (5/5 OK: Binomial/Pascal/Poisson/Multinomial),
+`test_parse_stability` (determinismo sobre 9 muestras).
+
+Unitarios Sprint 10 en `tests/test_sprint10.py` (8/8 OK): probability/momentos/marginal/validación
+de Multinomial + 5 tests de SumOfRVs (iid, mezcla N+N, steps, `from_model_instances`).
+
 ## Useful utilities in `calculation/`
 
 - `combinatorics.py`: `comb(n,r)` (cached), `comb_with_steps(n,r)` → `CalcResult` with full factorial breakdown.
@@ -200,8 +289,75 @@ Adding a new approximation:
 | **6** | Continuous models: Normal, Log-Normal, Exponential, Gamma/Erlang, Weibull, Uniform, Gumbel Min/Max, Pareto | **DONE** (2026-04-15) |
 | **—** | Compound problems (hiper+binomial, pascal conditional) | DONE (2026-04-17) |
 | **7** | Approximations engine (Hiper→Bi, Bi→N cc, Bi→Po, Po→N cc, Gamma→N Wilson-Hilferty) + 7 tests + UI tab | **DONE (2026-04-17)** |
-| **9** | Guide mode: parse "tema X ej Y" → read PDF → NL parser | pending |
-| **10** | TCL (sum of independent RVs), Multinomial, full test suite | pending |
+| **9** | Guide mode: parse "tema X ej Y" → read PDF → NL parser | **DONE (2026-04-17)** |
+| **10** | TCL (sum of independent RVs), Multinomial, full test suite | **DONE (2026-04-18)** |
+| **v2** | Local reasoning fallback + Consultas Teóricas + CustomPMF + invisibility gate | **DONE (2026-04-18)** |
+
+## Sprint v2 — local fallback + Consultas Teóricas
+
+Alcance **invisible** para el usuario final. Toda la infra técnica (`llm/`, `theory/`,
+prompts, logs) vive solo en archivos técnicos; la UI no muestra ningún artefacto.
+
+### Piezas nuevas
+
+- `llm/ollama_client.py` — cliente único contra `http://127.0.0.1:11434`. Métodos
+  `is_available()` (cache 30s), `chat(messages, json_mode=...)`, `embed(texts)`,
+  `list_models()`. Config en `config/settings.py` (`OLLAMA_HOST/MODEL/TIMEOUT/...`).
+  Primary `qwen2.5:14b-instruct`, fallback `qwen2.5:7b-instruct`, embeddings
+  `nomic-embed-text`. Maneja `OllamaUnavailable` en silencio.
+- `interpreter/nl_parser.py` — `_fallback_with_llm(text, regex_result)` +
+  `_validate_llm_output(obj)`. Se invoca solo si el regex devolvió
+  `need_more_info|error|unknown`. Gate `confidence ≥ 0.6` + validación de shape.
+  Campo `_source` (privado) indica `"regex"|"llm"`; la UI lo ignora.
+- `theory/machete_builder.py` — seed de `TEORIA/MACHETE.md` con fórmulas por tema
+  (editable manualmente).
+- `theory/rag_index.py` — RAG con PyMuPDF + `nomic-embed-text` + cosine en numpy.
+  Fallback BM25-lite si no hay embeddings. Cache en `theory/_cache/rag_index.pkl`
+  con invalidación por fingerprint de mtime+size.
+- `theory/answerer.py` — compone respuesta teórica grounded por los chunks RAG.
+  Si el servicio no responde o hay error, devuelve `"Respuesta no disponible
+  momentáneamente."` sin explicación técnica.
+- `ui/components/theory_ui.py` — modo `Consultas Teóricas` con `st.chat_input` y
+  memoria en `st.session_state["theory_history"]` (capado a 12 turnos).
+- `models/discrete/custom_pmf.py` — PMF casera con normalizador `k`.
+  `CustomPMF(expr, domain, k_var="k")` con `eval()` en namespace restringido
+  (`{abs, min, max, sqrt, exp, log, factorial, pi, e}`). Auto-normaliza con
+  `k = Σ f(x) con k=1`. Registrado en `config/model_catalog.py`.
+- Parser regex nuevo para PMF custom: detecta `P(X=x) = ...`, extrae dominio
+  de `x ∈ {0,1,2,3}` y k_var. Si falta dominio → `need_more_info`.
+- `_parse_tcl` extendido: captura `"3 mesas de 50 kg con desvío 2"` →
+  `Component(name="Mesa", count=3, mean=50, variance=4)`.
+
+### Scripts
+
+- `scripts/bootstrap.bat` — verifica instalación local, pullea modelos,
+  arranca el servicio en background. Log silencioso en `logs/bootstrap.log`.
+
+### Tests nuevos (Sprint v2)
+
+- `tests/test_ollama_client.py` — 4/4 (skip si servicio off).
+- `tests/test_parser_llm_fallback.py` — 4/4.
+- `tests/test_theory_flow.py` — 4/4 (machete + RAG + LaTeX + invisibilidad).
+- `tests/test_ui_invisibility.py` — 4/4 (gate literal sobre archivos UI).
+- `tests/test_regression_v2.py` — orquestador que encadena Sprints 7/9/10/v2.
+- `tests/MANUAL_REGRESSION_CHECKLIST.md` — 20 flujos manuales UI.
+
+### Extender
+
+- Agregar palabra prohibida al gate de invisibilidad → `_FORBIDDEN_LITERALS` en
+  `tests/test_ui_invisibility.py`.
+- Cambiar modelo primario → env `OLLAMA_MODEL`.
+- Rebuild machete → `python theory/machete_builder.py`.
+- Rebuild RAG → borrar `theory/_cache/rag_index.pkl`.
+
+### End-to-end
+
+```bat
+cd C:\Users\PC\Desktop\ESTADISTICA\APP
+scripts\bootstrap.bat
+C:\Python314\python tests\test_regression_v2.py
+C:\Python314\python -m streamlit run app_streamlit.py
+```
 
 ## Model formulas quick reference
 

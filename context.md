@@ -1,6 +1,6 @@
 # Contexto del Proyecto: Calculadora de Estadistica con Paso a Paso
 
-Ultima actualizacion: 2026-04-17 (Sprint 7: Motor de aproximaciones + UI)
+Ultima actualizacion: 2026-04-18 (Sprint 10: Multinomial + TCL / Suma de VA + test suite contra la guía)
 
 ---
 
@@ -208,9 +208,21 @@ APP/
 |   |-- approximator.py         # Motor: Hiper→Bi, Bi→N (cc ±0.5), Bi→Po, Po→N (cc ±0.5), Gamma→N (Wilson-Hilferty)
 |
 |-- tests/
-|   |-- test_approximations.py  # 7 tests standalone (no pytest requerido). Corre con `python tests/test_approximations.py`
+|   |-- test_approximations.py    # 7 tests standalone (Sprint 7)
+|   |-- test_guide_index.py       # 8 tests standalone (Sprint 9)
+|   |-- test_sprint10.py          # 8 tests: Multinomial + SumOfRVs (Sprint 10)
+|   |-- test_guide_corpus.py      # Coverage contra los 180 ejercicios (Sprint 10)
+|   |-- coverage_report.md        # Generado por test_guide_corpus — backlog para mejorar parser
 |
-|-- guide_index/                # PENDIENTE (Sprint 9)
+|-- guide_index/                  # Sprint 9 — indexer PDF + cache
+|
+|-- tcl/                          # Sprint 10 — Suma de VA / TCL
+|   |-- __init__.py               # reexporta SumOfRVs, Component
+|   |-- sum_of_rvs.py             # SumOfRVs: E(S), V(S), P(S≤s/≥s/range/fractil) vía TCL
+|
+|-- models/discrete/multinomial.py  # Sprint 10 — Multinomial (discreto multivariado)
+|-- ui/components/multinomial_ui.py # Sprint 10 — UI dedicada (data_editor pi/ri, 2 tabs)
+|-- ui/components/tcl_ui.py         # Sprint 10 — UI modo TCL (data_editor componentes, 3 tabs)
 ```
 
 ---
@@ -228,16 +240,18 @@ APP/
 | **6** | Modelos continuos: Normal, Log-Normal, Exponencial, Gamma/Erlang, Weibull, Gumbel, Pareto, Uniforme | HECHO (2026-04-15) |
 | **—** | Problemas Compuestos (Hipergeometrico+Binomial, Pascal condicional) | HECHO (2026-04-17) |
 | **7** | Motor de aproximaciones (Hiper→Bi, Bi→N, Bi→Po, Po→N, Gamma→N Wilson-Hilferty) + tests + UI | **HECHO (2026-04-17)** |
-| **9** | Modo guia: "tema X ej Y" → leer PDF → NL parser | pendiente |
-| **10** | TCL (suma de VA independientes), Multinomial, test suite completo | pendiente |
+| **9** | Modo guia: "tema X ej Y" → leer PDF → NL parser | **HECHO (2026-04-17)** |
+| **10** | Multinomial (discreto multivariado) + TCL / Suma de VA + test suite contra la guía | **HECHO (2026-04-18)** |
 
 ---
 
 ## Que queda pendiente
 
-### Sprints 9, 10
-- Sprint 9: El usuario escribe "tema III ejercicio 8" → leer enunciado del PDF con PyMuPDF → NL parser → resolver
-- Sprint 10: TCL (suma de N VA independientes), Multinomial, test suite automatizado contra todos los ejercicios de la guia
+### Backlog post-Sprint 10 (ver tests/coverage_report.md)
+- Parser de Tema II (probabilidad general): coverage 2/31. Falta mejorar la detección de patrones sin señales fuertes de Bayes.
+- Parser de Tema IV/V/VI (continuas): coverage muy bajo porque los enunciados usan lenguaje de ingeniería (confiabilidad, tiempos de servicio) con menos palabras-clave.
+- Extracción NL de componentes para TCL en casos heterogéneos (hoy solo captura "k variables con media μ y varianza σ²" o listas `E(Xi)=..., V(Xi)=...`).
+- Subir el umbral de `test_parse_coverage` a medida que se mejore la cobertura.
 
 ---
 
@@ -259,6 +273,7 @@ Flujo: `StepBuilder.add_step(level_min=N)` → `build()` → `CalcResult` → `g
 
 El parser opera en pasos ordenados:
 1. **Bypass catedra**: si hay `Fb(r/n;p)`, `Gpo(r/m)`, `Fh(r/n;N;R)`, etc. → parsea directo
+1.5. **Referencia a guia** (`_detect_guide_exercise`): detecta `"tema X ejercicio Y"` / `"guia tema 2 ej 23"` y retorna `status="guide_exercise"` con `tema` y `numero`. El `streamlit_interpreter` lo resuelve: abre el índice (`guide_index/indexer.py`, lazy + cache), extrae el enunciado del PDF, lo muestra al usuario, y re-parsea con el mismo NLParser
 2. **Problemas compuestos** (`_detect_compound`): detecta cadenas de distribuciones y retorna `status="compound"` con config. Tipos actuales: `hiper_binomial` (muestreo por caja + conteo de rechazos) y `pascal_conditional` (P(N>x | N>y))
 3. **Detectar modo**: Datos Agrupados (keywords o ≥3 patrones `X-Y`) / Probabilidad (bayes, a priori, P(A|B), mutuamente excluyentes, etc.) / Modelos de Probabilidad
 4. **Detectar modelo**: keywords en `MODELO_PATTERNS`
@@ -333,3 +348,22 @@ UI: `ui/components/approximations_ui.py::render_approximations_tab()` muestra, p
 Integración:
 - `app_streamlit.py` agrega 5ta tab "Aproximaciones" en modo discreto. Mapea `modelo` + inputs a params/query_params antes de llamar al motor.
 - `ui/components/continuous_ui.py::_render_approximations()` agrega 4ta tab en modo continuo. Solo Gamma tiene aproximación; las demás muestran mensaje informativo.
+
+---
+
+## Sprint 10: Multinomial + TCL + coverage tests
+
+### Multinomial (discreto multivariado)
+Modelo en `models/discrete/multinomial.py` — **no hereda** de `DiscreteModel` porque el resultado es un vector `r = (r1,…,rk)` con `sum(r)=n`. API: `probability(r_vector)`, `probability_value`, `mean_vector`, `variance_vector`, `covariance(i,j)` (todos `CalcResult`), `marginal_binomial(i) → Binomial(n, p_i)`. La UI dedicada (`ui/components/multinomial_ui.py`) se dispatcha desde `app_streamlit.py` cuando `modelo in _MULTIVARIATE_DISCRETE`, evitando el flujo univariado.
+
+Verificado: `Multinomial(10, [0.2,0.3,0.5]).probability_value([2,3,5]) = 0.085050` (manual: `10!/(2!3!5!)·0.2²·0.3³·0.5⁵`).
+
+### TCL / Suma de VA (nuevo modo)
+Módulo `tcl/sum_of_rvs.py` + modo `"TCL / Suma de VA"` en el selector de `app_streamlit.py`. Dados k componentes con E(Xi), V(Xi) y `count` (número de copias iid), computa `S = Σ Xi` y aplica TCL: `S ~ N(ΣμI·countI, ΣσI²·countI)`. Consultas: `cdf_left`, `cdf_right`, `range`, `fractile`. Constructor auxiliar `from_model_instances(models, counts)` permite alimentar con instancias de modelos existentes (Binomial, Normal, etc.). Heurística `tcl_condition_met(30)` para advertir cuando k < 30.
+
+UI con `st.data_editor` (Nombre, E(Xi), V(Xi), Cantidad) + 3 tabs: Cálculo, Momentos paso a paso, Componentes. NL parser detecta con keywords `tcl`, `teorema central`, `suma de [k] variables` y extrae componentes desde `"k variables con media μ y varianza σ²"`.
+
+### Test suite contra la guía
+`tests/test_guide_corpus.py` itera los 180 ejercicios, clasifica el resultado del parser (`complete` / `follow_up` / `error`) y genera `tests/coverage_report.md` con la lista de ejercicios que fallaron. Baseline Sprint 10: **31/180 complete (17.2%)** — los próximos sprints van a mover la aguja mejorando el parser de los temas con menor coverage (ver tabla). Tests: `test_parse_coverage` (umbral ≥25), `test_known_answers` (5/5 OK: Bi/Pa/Po/Multinomial), `test_parse_stability` (determinismo).
+
+Unitarios en `tests/test_sprint10.py` (8/8 OK): Multinomial `probability`/`mean/variance/covariance`/`marginal_binomial`/`characteristics_summary`/validación + SumOfRVs `iid(30 Bernoullis)`/`mezcla N+N`/`steps ≥3 niveles`/`from_model_instances`.

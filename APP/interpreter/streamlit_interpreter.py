@@ -29,22 +29,69 @@ def interpret_turn(messages: list[dict], user_text: str) -> dict:
             "messages": updated_messages,
         }
 
+    # ----- Referencia a ejercicio de la guia ---------------------------------
+    guide_meta: dict | None = None
+    if result.get("status") == "guide_exercise":
+        try:
+            from guide_index import get_exercise, load_or_build_index
+            index = load_or_build_index()
+            ex = get_exercise(index, result["tema"], result["numero"])
+        except Exception as e:
+            return {
+                "action": "error",
+                "message": f"Error leyendo la guía: {e}",
+                "messages": updated_messages,
+            }
+        if ex is None:
+            return {
+                "action": "error",
+                "message": (f"No encontré Tema {result['tema']} ejercicio "
+                            f"{result['numero']} en la guía."),
+                "messages": updated_messages,
+            }
+        enunciado_msg = {
+            "role": "assistant",
+            "content": _format_enunciado(ex),
+        }
+        updated_messages = updated_messages + [enunciado_msg]
+        guide_meta = {
+            "enunciado_from_guide": True,
+            "tema": ex["tema"],
+            "numero": ex["numero"],
+            "enunciado_text": ex["text"],
+            "expected_resp": ex["resp"],
+        }
+        try:
+            result = parser.parse(ex["text"])
+        except Exception as e:
+            return {
+                "action": "error",
+                "message": f"Error al interpretar el enunciado de la guía: {e}",
+                "messages": updated_messages,
+                "nl_input_prefill": ex["text"],
+                **guide_meta,
+            }
+
     if result["status"] == "compound":
         from calculation.compound_solver import solve_compound
         try:
             solution = solve_compound(result)
         except Exception as e:
-            return {
-                "action": "error",
-                "message": f"Error al resolver problema compuesto: {e}",
-                "messages": updated_messages,
-            }
+            return _enrich(
+                {"action": "error",
+                 "message": f"Error al resolver problema compuesto: {e}",
+                 "messages": updated_messages},
+                guide_meta,
+            )
         sc = {
             "mode": "Problema Compuesto",
             "compound_solution": solution,
             "interpretation": result.get("interpretation", "Problema compuesto detectado."),
         }
-        return {"action": "complete", "sc": sc, "messages": updated_messages}
+        return _enrich(
+            {"action": "complete", "sc": sc, "messages": updated_messages},
+            guide_meta,
+        )
 
     if result["status"] == "complete":
         mode = result.get("mode", "Modelos de Probabilidad")
@@ -57,7 +104,10 @@ def interpret_turn(messages: list[dict], user_text: str) -> dict:
                 "dp_frequencies":  result.get("dp_frequencies"),
                 "interpretation":  result.get("interpretation", "Datos agrupados detectados."),
             }
-            return {"action": "complete", "sc": sc, "messages": updated_messages}
+            return _enrich(
+                {"action": "complete", "sc": sc, "messages": updated_messages},
+                guide_meta,
+            )
 
         # ---- Probabilidad (Bayes / básica) ----------------------------------
         if mode == "Probabilidad":
@@ -76,18 +126,37 @@ def interpret_turn(messages: list[dict], user_text: str) -> dict:
                 "prob_name_B":     result.get("prob_name_B", "B"),
                 "interpretation":  result.get("interpretation", "Probabilidad detectada."),
             }
-            return {"action": "complete", "sc": sc, "messages": updated_messages}
+            return _enrich(
+                {"action": "complete", "sc": sc, "messages": updated_messages},
+                guide_meta,
+            )
+
+        # ---- TCL / Suma de VA ----------------------------------------------
+        if mode == "TCL / Suma de VA":
+            sc = {
+                "mode":           "TCL / Suma de VA",
+                "components":     result.get("components", []),
+                "query_type":     result.get("query_type"),
+                "query_params":   result.get("query_params", {}),
+                "interpretation": result.get("interpretation", "TCL / suma de VA detectado."),
+            }
+            return _enrich(
+                {"action": "complete", "sc": sc, "messages": updated_messages},
+                guide_meta,
+            )
 
         # ---- Modelos de Probabilidad (distribucion discreta) ----------------
         model = normalize_model_name(result.get("model", ""))
         if not is_implemented(model):
             disponibles = ", ".join(sorted(IMPLEMENTED_MODELS))
-            return {
-                "action": "error",
-                "message": (f"El modelo '{model}' fue identificado pero aún no está "
-                            f"implementado. Disponibles: {disponibles}."),
-                "messages": updated_messages,
-            }
+            return _enrich(
+                {"action": "error",
+                 "message": (f"El modelo '{model}' fue identificado pero aún no está "
+                             f"implementado. Disponibles: {disponibles}."),
+                 "messages": updated_messages,
+                 "nl_input_prefill": guide_meta["enunciado_text"] if guide_meta else None},
+                guide_meta,
+            )
         sc = {
             "mode":        "Modelos de Probabilidad",
             "model":       model,
@@ -96,22 +165,53 @@ def interpret_turn(messages: list[dict], user_text: str) -> dict:
             "query_params": result.get("query_params", {}),
             "interpretation": result.get("interpretation", ""),
         }
-        return {"action": "complete", "sc": sc, "messages": updated_messages}
+        return _enrich(
+            {"action": "complete", "sc": sc, "messages": updated_messages},
+            guide_meta,
+        )
 
     if result["status"] == "need_more_info":
         partial_msg = {"role": "assistant", "content": _encode_partial(result)}
-        return {
+        out = {
             "action": "follow_up",
             "question": result.get("question", "¿Podés dar más detalles?"),
             "partial": result,
             "messages": updated_messages + [partial_msg],
         }
+        if guide_meta:
+            out["nl_input_prefill"] = guide_meta["enunciado_text"]
+        return _enrich(out, guide_meta)
 
-    return {
-        "action": "error",
-        "message": "No se pudo interpretar el problema. Intentá con más detalle.",
-        "messages": updated_messages,
-    }
+    return _enrich(
+        {"action": "error",
+         "message": "No se pudo interpretar el problema. Intentá con más detalle.",
+         "messages": updated_messages,
+         "nl_input_prefill": guide_meta["enunciado_text"] if guide_meta else None},
+        guide_meta,
+    )
+
+
+def _format_enunciado(ex: dict) -> str:
+    parts = [f"**Tema {ex['tema']} — Ejercicio {ex['numero']}**"]
+    if ex.get("tema_title"):
+        parts[0] += f"  \n_{ex['tema_title']}_"
+    parts.append("")
+    parts.append(ex["text"])
+    if ex.get("resp"):
+        parts.append("")
+        parts.append(f"**Resp. esperada:** {ex['resp']}")
+    return "\n".join(parts)
+
+
+def _enrich(out: dict, guide_meta: dict | None) -> dict:
+    if guide_meta:
+        for key, val in guide_meta.items():
+            out.setdefault(key, val)
+    # Clean None-valued optional keys so callers can use `key in out`
+    for key in ("nl_input_prefill",):
+        if key in out and out[key] is None:
+            del out[key]
+    return out
 
 
 def apply_sc_to_session(sc: dict, st_session) -> None:
@@ -131,8 +231,17 @@ def apply_sc_to_session(sc: dict, st_session) -> None:
         return
 
     # Cambiar modo (pendiente — se aplica antes del widget en el próximo rerun)
-    if mode in ("Datos Agrupados", "Probabilidad"):
+    if mode in ("Datos Agrupados", "Probabilidad", "TCL / Suma de VA", "Modelos de Probabilidad"):
         st_session["_pending_mode"] = mode
+
+    # TCL — pre-llenar componentes
+    if mode == "TCL / Suma de VA" and sc.get("components"):
+        st_session["tcl_df"] = pd.DataFrame({
+            "Nombre":   [c.get("name", f"X{i+1}") for i, c in enumerate(sc["components"])],
+            "E(Xi)":    [float(c.get("mean", 0.0)) for c in sc["components"]],
+            "V(Xi)":    [float(c.get("variance", 0.0)) for c in sc["components"]],
+            "Cantidad": [int(c.get("count", 1)) for c in sc["components"]],
+        })
 
     # Datos Agrupados — pre-llenar tabla
     if mode == "Datos Agrupados" and sc.get("dp_intervals") and sc.get("dp_frequencies"):

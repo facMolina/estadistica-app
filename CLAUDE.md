@@ -2,6 +2,14 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## First step on every session
+
+Before doing anything else, **read `README.md`** at this same level. It contains
+the canonical instructions to prepare the environment and launch the app
+(`start.bat` on Windows, `./start.sh` on macOS/Linux), plus troubleshooting for
+the most common failure modes. Use it as the source of truth when the user
+asks "how do I run this?" or when you need to start the app as part of a task.
+
 ## What this project is
 
 A Python/Streamlit app that solves Statistics exercises (UADE - Ing. Sergio Anibal Dopazo) showing full **step-by-step workings** of each calculation. The web UI works offline with no API key; the CLI mode uses the Anthropic API.
@@ -70,7 +78,19 @@ UI components (ui/components/)        ← render steps, graphs, table
 
 **Model base classes** (`models/base.py`): `DiscreteModel` and `ContinuousModel` (abstract). Completed discrete models: Binomial, Poisson, Pascal, Hipergeometrico, Hiper-Pascal — use `binomial.py` as the template.
 
-**NL interpreter** (`interpreter/nl_parser.py`): pure regex/keyword parser in 4 phases — cathedra notation bypass → model detection → parameter extraction → query type detection. Multi-turn: returns `need_more_info` with a follow-up question when parameters are missing.
+**NL interpreter** (`interpreter/nl_parser.py`): pure regex/keyword parser in 5 phases — cathedra notation bypass → guide exercise detection (step 0.3) → compound detection (step 0.5) → model detection → parameter extraction → query type detection. Multi-turn: returns `need_more_info` with a follow-up question when parameters are missing. Can also return `status: "compound"` for chained distributions (hiper+binomial, pascal conditional) dispatched via `calculation/compound_solver.py`, or `status: "guide_exercise"` for references like "tema III ejercicio 8" resolved via `guide_index/`.
+
+**Approximations engine** (`approximations/approximator.py`): `try_approximations(model_name, params, query_type, query_params)` returns a list of `ApproximationResult` (both safe and unsafe applications, with ✅/⚠️ badges). Implemented: Hiper→Bi, Bi→N (continuity correction), Bi→Po, Po→N (cc), Gamma→N (Wilson-Hilferty). Shown as the extra tab in the discrete/continuous flows.
+
+## Running tests
+
+Standalone tests (no pytest required) live in `APP/tests/`. Run from `APP/`:
+
+```bat
+C:\Python314\python tests/test_approximations.py
+```
+
+Expected: 7/7 OK. Key verified value: `Fg(20/4;0.3)=0.8488` via Wilson-Hilferty.
 
 ## Detailed guidance
 
@@ -96,5 +116,8 @@ UI components (ui/components/)        ← render steps, graphs, table
 | Streamlit UI — 4 modes, 4 tabs for distributions | Done |
 | CLI with Claude API | Done |
 | Continuous models (Normal, Log-Normal, Exponential, Gamma/Erlang, Weibull, Gumbel Max/Min, Pareto, Uniforme) | Done (Sprint 6) |
-| Approximations engine + TCL | Sprint 7 — pending |
-| Guide PDF exercise mode | Sprint 9 — pending |
+| Compound problems (hiper+binomial, pascal conditional) | Done |
+| Approximations engine (Hiper→Bi, Bi→N cc, Bi→Po, Po→N cc, Gamma→N Wilson-Hilferty) + tests + UI tab | Done (Sprint 7) |
+| Guide PDF exercise mode ("tema III ejercicio 8" → extract enunciado → NL parser) | Done (Sprint 9) |
+| Multinomial (discrete multivariate) + TCL / Sum of RVs module + guide corpus test suite | Done (Sprint 10) |
+| CustomPMF + local reasoning fallback + Consultas Teóricas (RAG + LaTeX) + invisibility gate — optional local service, app degrades silently without it | Done (Sprint v2) |

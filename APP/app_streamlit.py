@@ -27,6 +27,16 @@ from ui.components.continuous_ui import (
 )
 from ui.components.compound_ui import render_compound_main
 from ui.components.approximations_ui import render_approximations_tab
+from ui.components.custom_pmf_ui import (
+    render_custom_pmf_sidebar,
+    render_custom_pmf_main,
+)
+from ui.components.multinomial_ui import (
+    render_multinomial_sidebar,
+    render_multinomial_main,
+)
+from ui.components.tcl_ui import render_tcl_sidebar, render_tcl_main
+from ui.components.theory_ui import render_theory_sidebar, render_theory_main
 from calculation.statistics_common import format_number
 from config.settings import SESSION_CONFIG_PATH
 from interpreter.streamlit_interpreter import interpret_turn, apply_sc_to_session
@@ -40,6 +50,14 @@ st.set_page_config(
 
 st.title("Calculadora de Estadistica General")
 st.caption("UADE — Probabilidad y Estadística General")
+
+if st.session_state.get("last_guide_enunciado"):
+    _g = st.session_state["last_guide_enunciado"]
+    with st.expander(f"Tema {_g['tema']} — Ejercicio {_g['numero']} (de la guía)",
+                     expanded=True):
+        st.markdown(_g["text"])
+        if _g.get("resp"):
+            st.caption(f"Respuesta esperada: {_g['resp']}")
 
 # --- Leer session_config escrito por la CLI (una sola vez por sesion) ---
 if "session_config_loaded" not in st.session_state:
@@ -75,8 +93,12 @@ if sc_is_new:
     st.session_state["sc_is_new"] = False
 
 # --- Modelos disponibles ---
-_MODELS = ["Binomial", "Poisson", "Pascal", "Hipergeometrico", "Hiper-Pascal"]  # discretos
+_MODELS = ["Binomial", "Poisson", "Pascal", "Hipergeometrico", "Hiper-Pascal",
+           "Multinomial", "CustomPMF"]  # discretos
 _DISCRETE_MODELS = _MODELS  # alias
+_MULTIVARIATE_DISCRETE = {"Multinomial"}
+# Modelos discretos con sidebar/main propios (no comparten el shape n,p,m,…).
+_NONSTANDARD_DISCRETE = {"Multinomial", "CustomPMF"}
 
 # Variable de consulta segun modelo (r o n)
 _MODEL_VAR = {
@@ -118,13 +140,24 @@ _sc_N       = int(_sc_params.get("N", 20))
 _sc_R       = int(_sc_params.get("R", 8))
 _sc_n_hiper = int(_sc_params.get("n", 5))     # Hipergeometrico: muestra
 
-# Query value
-_sc_r_val   = int(_sc_qp.get("r", 3))
-_sc_a_val   = int(_sc_qp.get("a", 2))
-_sc_b_val   = int(_sc_qp.get("b", 5))
+# Query value — defensivo: si vienen como lista (Multinomial, CustomPMF) o tipo
+# inesperado, caemos al default entero en lugar de crashear el módulo.
+def _as_int(v, default: int) -> int:
+    try:
+        if isinstance(v, (list, tuple, dict, set)):
+            return default
+        return int(v)
+    except (TypeError, ValueError):
+        return default
+
+_sc_r_val   = _as_int(_sc_qp.get("r"), 3)
+_sc_a_val   = _as_int(_sc_qp.get("a"), 2)
+_sc_b_val   = _as_int(_sc_qp.get("b"), 5)
 
 # --- Continuous sidebar config (populated inside sidebar block) ---
 cont_cfg = None
+multi_cfg = None  # Multinomial config (populated inside sidebar)
+custom_pmf_cfg = None  # CustomPMF config (populated inside sidebar)
 detail_level = 2  # default; overwritten in sidebar
 
 # --- Sidebar ---
@@ -133,7 +166,8 @@ with st.sidebar:
     # ---- Selector de modo (tope del sidebar) ----
     app_mode = st.radio(
         "Modo",
-        ["Modelos de Probabilidad", "Datos Agrupados", "Probabilidad"],
+        ["Modelos de Probabilidad", "Datos Agrupados", "Probabilidad",
+         "TCL / Suma de VA", "Consultas Teóricas"],
         horizontal=True,
         key="app_mode",
     )
@@ -147,8 +181,13 @@ with st.sidebar:
             st.error(st.session_state["nl_error"])
             st.session_state["nl_error"] = None
 
+        for _msg in st.session_state.get("nl_messages", []):
+            if (_msg.get("role") == "assistant"
+                    and not _msg.get("content", "").startswith("__partial__")):
+                st.info(_msg["content"])
+
         if st.session_state["nl_state"] == "follow_up":
-            st.info(st.session_state["nl_follow_up_question"])
+            st.warning(st.session_state["nl_follow_up_question"])
 
         placeholder = (
             "Respondé la pregunta de arriba..."
@@ -176,6 +215,15 @@ with st.sidebar:
                         st.session_state["sc"] = result["sc"]
                         st.session_state["sc_is_new"] = True
                         st.session_state["nl_state"] = "idle"
+                        if result.get("enunciado_from_guide"):
+                            st.session_state["last_guide_enunciado"] = {
+                                "tema": result["tema"],
+                                "numero": result["numero"],
+                                "text": result["enunciado_text"],
+                                "resp": result.get("expected_resp", ""),
+                            }
+                        else:
+                            st.session_state.pop("last_guide_enunciado", None)
                         st.session_state["nl_messages"] = []
                         st.rerun()
                     elif result["action"] == "follow_up":
@@ -183,10 +231,14 @@ with st.sidebar:
                         st.session_state["nl_follow_up_question"] = result["question"]
                         st.session_state["nl_partial"] = result["partial"]
                         st.session_state["nl_messages"] = result["messages"]
+                        if "nl_input_prefill" in result:
+                            st.session_state["nl_input"] = result["nl_input_prefill"]
                         st.rerun()
                     else:
                         st.session_state["nl_error"] = result["message"]
                         st.session_state["nl_messages"] = result["messages"]
+                        if "nl_input_prefill" in result:
+                            st.session_state["nl_input"] = result["nl_input_prefill"]
                         st.rerun()
         with col2:
             if st.session_state["nl_state"] == "follow_up":
@@ -225,7 +277,31 @@ with st.sidebar:
                 index=_MODELS.index(_sc_model) if _sc_model in _MODELS else 0,
             )
 
-        if model_type == "Discreto":
+        if model_type == "Discreto" and modelo in _MULTIVARIATE_DISCRETE:
+            # Flujo multivariado (Multinomial): usa su propio sidebar.
+            multi_cfg = render_multinomial_sidebar(
+                sc=sc if _sc_model == modelo else None
+            )
+            st.markdown("---")
+            detail_level = render_detail_selector()
+            st.markdown("---")
+            st.subheader("Fórmula")
+            if multi_cfg.get("model") is not None:
+                st.latex(multi_cfg["model"].latex_formula())
+
+        elif model_type == "Discreto" and modelo == "CustomPMF":
+            # PMF casera: sidebar dedicado con expr + dominio + k_var.
+            custom_pmf_cfg = render_custom_pmf_sidebar(
+                sc=sc if _sc_model == modelo else None
+            )
+            st.markdown("---")
+            detail_level = render_detail_selector()
+            st.markdown("---")
+            st.subheader("Fórmula")
+            if custom_pmf_cfg.get("model") is not None:
+                st.latex(custom_pmf_cfg["model"].latex_formula())
+
+        elif model_type == "Discreto":
             var = _MODEL_VAR[modelo]
             ql = _query_labels(var)
 
@@ -340,10 +416,26 @@ with st.sidebar:
     # ================================================================
     # MODO: Probabilidad
     # ================================================================
-    else:
+    elif app_mode == "Probabilidad":
         prob_config = render_probability_sidebar()
         st.markdown("---")
         detail_level = render_detail_selector()
+
+    # ================================================================
+    # MODO: TCL / Suma de VA
+    # ================================================================
+    elif app_mode == "TCL / Suma de VA":
+        tcl_config = render_tcl_sidebar(
+            sc=sc if (sc and sc.get("mode") == "TCL / Suma de VA") else None
+        )
+        st.markdown("---")
+        detail_level = render_detail_selector()
+
+    # ================================================================
+    # MODO: Consultas Teóricas
+    # ================================================================
+    else:
+        render_theory_sidebar()
 
 
 # ---------------------------------------------------------------------------
@@ -379,10 +471,42 @@ if app_mode == "Probabilidad":
 
 
 # ---------------------------------------------------------------------------
+# Contenido principal — TCL / Suma de VA
+# ---------------------------------------------------------------------------
+if app_mode == "TCL / Suma de VA":
+    render_tcl_main(tcl_config, detail_level)
+    st.stop()
+
+
+# ---------------------------------------------------------------------------
+# Contenido principal — Consultas Teóricas
+# ---------------------------------------------------------------------------
+if app_mode == "Consultas Teóricas":
+    render_theory_main()
+    st.stop()
+
+
+# ---------------------------------------------------------------------------
 # Contenido principal — Modelos Continuos
 # ---------------------------------------------------------------------------
 if app_mode == "Modelos de Probabilidad" and cont_cfg is not None:
     render_continuous_main(cont_cfg, detail_level)
+    st.stop()
+
+
+# ---------------------------------------------------------------------------
+# Contenido principal — Multinomial (discreto multivariado)
+# ---------------------------------------------------------------------------
+if app_mode == "Modelos de Probabilidad" and multi_cfg is not None:
+    render_multinomial_main(multi_cfg, detail_level)
+    st.stop()
+
+
+# ---------------------------------------------------------------------------
+# Contenido principal — CustomPMF (PMF discreta casera con normalizador k)
+# ---------------------------------------------------------------------------
+if app_mode == "Modelos de Probabilidad" and custom_pmf_cfg is not None:
+    render_custom_pmf_main(custom_pmf_cfg, detail_level)
     st.stop()
 
 

@@ -139,9 +139,17 @@ def format_number(value: float, decimals: int = 4) -> str:
     Enteros se muestran sin decimales (ej. 495 → '495').
     Si no se pierde información al truncar, no agrega ceros de relleno
     (ej. 1.5 → '1.5', pero 1.50001 → '1.5000').
+    Valores no numéricos o magnitudes enormes caen a notación científica.
     """
-    if value == int(value) and abs(value) < 1e12:
-        return str(int(value))
+    if value is None or (isinstance(value, float) and (math.isnan(value) or math.isinf(value))):
+        return "—"
+    try:
+        if value == int(value) and abs(value) < 1e12:
+            return str(int(value))
+    except (OverflowError, ValueError):
+        pass
+    if abs(value) >= 1e12 or (0 < abs(value) < 1e-6):
+        return f"{value:.{decimals}e}"
     rounded = _custom_round(value, decimals)
     formatted = f"{rounded:.{decimals}f}"
     # Si el valor original ya cabía en menos decimales, quitar ceros sobrantes

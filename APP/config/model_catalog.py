@@ -8,6 +8,8 @@ IMPLEMENTED_MODELS = {
     "Pascal",
     "Hipergeometrico",
     "Hiper-Pascal",
+    "Multinomial",
+    "CustomPMF",
     # Continuos
     "Normal",
     "Log-Normal",
@@ -21,9 +23,13 @@ IMPLEMENTED_MODELS = {
 }
 
 # Modelos que la CLI puede identificar pero aún no están en Streamlit
-PENDING_MODELS = {
-    "Multinomial",
-}
+PENDING_MODELS: set = set()
+
+# Modelos multivariados (la UI y el flujo discreto univariado no aplican)
+MULTIVARIATE_MODELS = {"Multinomial"}
+
+# Modelos discretos con API no-estándar (no heredan DiscreteModel)
+CUSTOM_DISCRETE_MODELS = {"CustomPMF"}
 
 # Aliases que puede generar Claude → nombre canónico
 MODEL_ALIASES = {
@@ -54,6 +60,16 @@ MODEL_ALIASES = {
     "binomial": "Binomial",
     "pascal": "Pascal",
     "weibull": "Weibull",
+    "multinomial": "Multinomial",
+    "Multi-Nomial": "Multinomial",
+    "Multinomica": "Multinomial",
+    "PMF": "CustomPMF",
+    "pmf": "CustomPMF",
+    "PMF casera": "CustomPMF",
+    "pmf casera": "CustomPMF",
+    "Custom PMF": "CustomPMF",
+    "custom_pmf": "CustomPMF",
+    "customPMF": "CustomPMF",
 }
 
 

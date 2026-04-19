@@ -32,6 +32,18 @@ Thumbs.db
 # Session config (generado en runtime)
 APP/session_config.json
 
+# Claude Code local config / scheduled tasks
+.claude/
+
+# Runtime logs (Ollama, Streamlit)
+APP/logs/
+
+# RAG embeddings cache (regenerable desde TEORIA/)
+APP/theory/_cache/
+
+# Guide PDF index cache (regenerable desde el PDF)
+APP/guide_index/index.json
+
 # Jupyter
 .ipynb_checkpoints/
 

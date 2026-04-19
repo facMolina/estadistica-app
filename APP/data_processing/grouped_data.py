@@ -13,6 +13,11 @@ from calculation.step_engine import StepBuilder
 from calculation.statistics_common import format_number
 
 
+def _sub(n: int) -> str:
+    """Convierte un entero a subíndice Unicode (1 → ₁, 23 → ₂₃)."""
+    return str(n).translate(str.maketrans("0123456789", "₀₁₂₃₄₅₆₇₈₉"))
+
+
 class GroupedData:
     """
     Datos agrupados en k intervalos [a_i, b_i) con frecuencias fi.
@@ -108,9 +113,10 @@ class GroupedData:
             ci = self.ci[i]
             fai_ci = fai * ci
             sum_fai_ci += fai_ci
+            sub = _sub(i + 1)
             builder.add_step(
-                desc=f"C_{i+1} = ({format_number(a)}+{format_number(b)})/2 = {format_number(ci)}"
-                     f"  →  fa_{i+1}·C_{i+1} = {fai}·{format_number(ci)} = {format_number(fai_ci)}",
+                desc=f"C{sub} = ({format_number(a)}+{format_number(b)})/2 = {format_number(ci)}"
+                     f"  →  fa{sub}·C{sub} = {fai}·{format_number(ci)} = {format_number(fai_ci)}",
                 latex=rf"f_{{a{i+1}}} \cdot C_{{{i+1}}} = {fai} \cdot {format_number(ci)} = {format_number(fai_ci)}",
                 result=fai_ci,
                 level_min=3,
@@ -161,8 +167,9 @@ class GroupedData:
             ci = self.ci[i]
             fai_ci2 = fai * ci ** 2
             sum_fai_ci2 += fai_ci2
+            sub = _sub(i + 1)
             builder.add_step(
-                desc=f"fa_{i+1}·C_{i+1}² = {fai}·{format_number(ci)}² = {format_number(fai_ci2)}",
+                desc=f"fa{sub}·C{sub}² = {fai}·{format_number(ci)}² = {format_number(fai_ci2)}",
                 latex=rf"f_{{a{i+1}}} \cdot C_{{{i+1}}}^2 = {fai} \cdot {format_number(ci)}^2 = {format_number(fai_ci2)}",
                 result=fai_ci2,
                 level_min=3,
