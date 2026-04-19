@@ -1,6 +1,6 @@
 # Estadística UADE — App
 
-Resuelve ejercicios de Estadística General (Dopazo, UADE) con paso a paso,
+Resuelve ejercicios de Estadística General (UADE) con paso a paso,
 gráficos, tabla de distribución y un modo de Consultas Teóricas con LaTeX.
 
 ---
