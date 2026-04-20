@@ -252,9 +252,11 @@ def render_custom_pmf_main(cfg: dict, detail_level: int) -> None:
     from ui.components.summary_panel import render_summary
     from ui.components.table_panel import render_table
     from ui.components.graph_panel import render_graphs
+    from ui.components.extras import render_extras_tab
 
-    tab_calc, tab_chars, tab_table, tab_graphs = st.tabs(
-        ["Cálculo Paso a Paso", "Características", "Tabla de Distribución", "Gráficos"]
+    tab_calc, tab_chars, tab_table, tab_graphs, tab_extras = st.tabs(
+        ["Cálculo Paso a Paso", "Características", "Tabla de Distribución",
+         "Gráficos", "Cálculos extra"]
     )
 
     highlight = None
@@ -345,4 +347,12 @@ def render_custom_pmf_main(cfg: dict, detail_level: int) -> None:
             model.full_table(),
             f"CustomPMF({cfg.get('expr', model.expr)})",
             highlight_r=highlight,
+        )
+
+    with tab_extras:
+        render_extras_tab(
+            model,
+            f"CustomPMF({cfg.get('expr', model.expr)})",
+            "custom_pmf",
+            detail_level,
         )

@@ -13,6 +13,7 @@ from models.continuous.pareto import Pareto
 from models.continuous.uniforme import Uniforme
 from ui.components.step_display import render_calc_result
 from ui.components.summary_panel import render_summary
+from ui.components.extras import render_extras_tab
 from display.graph_builder import build_density_plot
 from calculation.statistics_common import format_number
 
@@ -249,8 +250,9 @@ def render_continuous_main(cfg: dict, detail_level: int):
         st.error(f"Parámetros inválidos: {model_error}")
         return
 
-    tab_calc, tab_chars, tab_graph, tab_approx = st.tabs([
-        "Cálculo Paso a Paso", "Características", "Gráfico", "Aproximaciones",
+    tab_calc, tab_chars, tab_graph, tab_approx, tab_extras = st.tabs([
+        "Cálculo Paso a Paso", "Características", "Gráfico",
+        "Aproximaciones", "Cálculos extra",
     ])
 
     with tab_calc:
@@ -258,6 +260,9 @@ def render_continuous_main(cfg: dict, detail_level: int):
 
     with tab_approx:
         _render_approximations(model, modelo, query_type, qparams, detail_level)
+
+    with tab_extras:
+        render_extras_tab(model, f"{modelo}({title_params})", "continuous", detail_level)
 
     with tab_chars:
         st.subheader(f"Características — {modelo}({title_params})")

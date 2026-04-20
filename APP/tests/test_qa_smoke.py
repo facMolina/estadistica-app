@@ -356,6 +356,7 @@ def qa_ui_imports():
         "ui.components.tcl_ui",
         "ui.components.theory_ui",
         "ui.components.custom_pmf_ui",
+        "ui.components.extras",
     ]
     for name in targets:
         try:
@@ -363,6 +364,63 @@ def qa_ui_imports():
             _check(f"import {name}", True)
         except Exception as e:
             _check(f"import {name}", False, f"{type(e).__name__}: {e}")
+
+
+# ---------------------------------------------------------------------------
+# 13. Cálculos extra — LinearTransformCalculator
+# ---------------------------------------------------------------------------
+def qa_extras():
+    print("\n[13] Cálculos extra (pestaña extensible)")
+    try:
+        from ui.components.extras import EXTRA_CALCULATORS, render_extras_tab
+        from ui.components.extras.linear_transform import LinearTransformCalculator
+    except Exception as e:
+        _check("import extras", False, f"{type(e).__name__}: {e}")
+        return
+
+    _check(
+        "LinearTransformCalculator registrada",
+        any(isinstance(c, LinearTransformCalculator) for c in EXTRA_CALCULATORS),
+    )
+
+    calc = LinearTransformCalculator()
+
+    # PMF del usuario: (x²-x+2)/k sobre {0..4} → k=30, E(X)=3, V(X)=22/15.
+    try:
+        from models.discrete.custom_pmf import CustomPMF
+
+        pmf = CustomPMF(expr="(x**2 - x + 2)/k", domain=[0, 1, 2, 3, 4])
+        e_g = calc.compute_expectation(pmf, a=2000.0, b=1500.0).final_value
+        v_g = calc.compute_variance(pmf, a=2000.0, b=1500.0).final_value
+        _check("CustomPMF E(2000+1500X) = 6500", _close(e_g, 6500.0, 1e-6), f"E={e_g}")
+        # V(X) = 22/15 exacto → V(2000+1500X) = 1500²·22/15 = 3_300_000
+        _check(
+            "CustomPMF V(2000+1500X) = 3_300_000",
+            _close(v_g, 3_300_000.0, 1e-3),
+            f"V={v_g}",
+        )
+    except Exception as e:
+        _check("CustomPMF transform", False, f"EXC {type(e).__name__}: {e}")
+
+    # Binomial(10, 0.5): E(X)=5 → E(2000+1500X)=9500.
+    try:
+        from models.discrete.binomial import Binomial
+
+        b = Binomial(n=10, p=0.5)
+        e_g2 = calc.compute_expectation(b, a=2000.0, b=1500.0).final_value
+        _check("Binomial E(2000+1500X) = 9500", _close(e_g2, 9500.0, 1e-6), f"E={e_g2}")
+    except Exception as e:
+        _check("Binomial transform", False, f"EXC {type(e).__name__}: {e}")
+
+    # Normal(mu=10, sigma=2): V(3+2X) = b²·V(X) = 4·4 = 16.
+    try:
+        from models.continuous.normal import Normal
+
+        n = Normal(mu=10, sigma=2)
+        v_g3 = calc.compute_variance(n, a=3.0, b=2.0).final_value
+        _check("Normal V(3+2X) = 16", _close(v_g3, 16.0, 1e-6), f"V={v_g3}")
+    except Exception as e:
+        _check("Normal transform", False, f"EXC {type(e).__name__}: {e}")
 
 
 # ---------------------------------------------------------------------------
@@ -401,6 +459,7 @@ def main() -> int:
         qa_compound,
         qa_datos_agrupados,
         qa_probabilidad,
+        qa_extras,
         qa_parser_and_mode,
         qa_http_smoke,
     ]:

@@ -27,6 +27,7 @@ from ui.components.continuous_ui import (
 )
 from ui.components.compound_ui import render_compound_main
 from ui.components.approximations_ui import render_approximations_tab
+from ui.components.extras import render_extras_tab
 from ui.components.custom_pmf_ui import (
     render_custom_pmf_sidebar,
     render_custom_pmf_main,
@@ -537,8 +538,9 @@ except ValueError as e:
 # ---------------------------------------------------------------------------
 # Tabs principales (Modelos de Probabilidad)
 # ---------------------------------------------------------------------------
-tab_calc, tab_chars, tab_table, tab_graphs, tab_approx = st.tabs([
-    "Calculo Paso a Paso", "Caracteristicas", "Tabla de Distribucion", "Graficos", "Aproximaciones",
+tab_calc, tab_chars, tab_table, tab_graphs, tab_approx, tab_extras = st.tabs([
+    "Calculo Paso a Paso", "Caracteristicas", "Tabla de Distribucion", "Graficos",
+    "Aproximaciones", "Cálculos extra",
 ])
 
 
@@ -636,3 +638,7 @@ with tab_approx:
         )
     else:
         render_approximations_tab(modelo, _approx_params, query_type, _approx_qp, detail_level)
+
+
+with tab_extras:
+    render_extras_tab(model, f"{modelo}({title_params})", "discrete", detail_level)
