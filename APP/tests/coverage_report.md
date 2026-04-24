@@ -10,12 +10,12 @@
 | Tema | Total | OK | Follow-up | Error |
 |------|-------|----|-----------|-------|
 | I | 5 | 5 | 0 | 0 |
-| II | 31 | 16 | 15 | 0 |
+| II | 31 | 17 | 14 | 0 |
 | III | 33 | 26 | 7 | 0 |
 | IV | 27 | 18 | 9 | 0 |
-| V | 27 | 20 | 7 | 0 |
-| VI | 40 | 34 | 6 | 0 |
-| VII | 17 | 14 | 3 | 0 |
+| V | 27 | 19 | 8 | 0 |
+| VI | 40 | 33 | 7 | 0 |
+| VII | 17 | 15 | 2 | 0 |
 
 ## Ejercicios con fallas (follow_up + error)
 
@@ -98,14 +98,6 @@ Una caja tiene 4 bolillas blancas y 6 rojas. Se saca una bolilla, se mira su col
 
 ```
 En un bazar hay dos vendedores, “A” y “B”. De los clientes atendidos por “A”, el 65% efectúa una compra; de los atendidos por “B”, el 75% lo hace. Cada cliente que llega elige un vendedor, pero se considera que las preferencias están equilibradas. “A” falta el 10% de los días y “B” el 6%. Cuando faltan los dos, los clientes son  atendidos por la dueña del negocio, que le vende al 100% de los que atiende debido a que es más convincente y más insistente que sus vendedores. a) De los clientes que llegan al negocio, ¿qué porcentaje efectúa una compra?; b) si un cliente efectúa una compra, ¿cuál es
-```
-
-### Tema II — Ejercicio 17  (follow_up)
-
-**Motivo:** No pude identificar el modelo estadístico. ¿Cuál es? (Ej: Binomial, Poisson, etc.)
-
-```
-Sacando cartas de un mazo español de 40, calcular la probabilidad de que el primer basto aparezca a partir de la tercera extracción, sabiendo que en las dos primeras salió por lo menos un oro.   Resp 49/69 = 0,7101.
 ```
 
 ### Tema II — Ejercicio 20  (follow_up)
@@ -200,7 +192,7 @@ En una empresa se reciben periódicamente piezas de repuesto, las cuales se sumi
 
 ### Tema III — Ejercicio 30  (follow_up)
 
-**Motivo:** Falta información sobre la distribución y los costos totales para armar S = 11·X + 150·(8 - X^+)
+**Motivo:** Falta la distribución para calcular el costo esperado y la optimización
 **Resp. esperada:** a) U$s 2.823,63; b) hay que repetir el cálculo para distintos valores de n, el valor óptimo se obtiene con n = 9    U$s 2.768,77. Se puede usar el SOLVER del Excel.
 
 ```
@@ -290,11 +282,20 @@ En un circuito entran en serie dos elementos similares, que se obtienen del alma
 
 ### Tema IV — Ejercicio 25  (follow_up)
 
-**Motivo:** Falta información sobre la distribución de salarios originales y su media para resolver el problema
+**Motivo:** Falta distribución de salarios originales o datos suficientes para calcular S = X + I(X < μ·0.27, X > μ·1.16 - 0.84)
 **Resp. esperada:** a) 244,72 U$s; b) 23,52%; c) 214,81 U$s.
 
 ```
 Respecto del problema anterior, la empresa decide otorgar un aumento del 27% a los que ganan menos que la media y del 16% a los que ganan más. Calcular: a) El salario promedio después del aumento; b) el aumento porcentual promedio otorgado; c) el salario promedio, después del aumento, para los empleados que antes del aumento ganaban menos que la media sin aumento.
+```
+
+### Tema V — Ejercicio 1  (follow_up)
+
+**Motivo:** No pude identificar el modelo estadístico. ¿Cuál es? (Ej: Binomial, Poisson, etc.)
+**Resp. esperada:** a) 94,52%; b) 78,81%; c) 73,33%; d) 24.112,14 lt.; e) 16.796,12 lt.; f) 52,9%; g) 77,58%; h) 93,04%; i) 0,4596.
+
+```
+En una planta industrial el consumo mensual de combustible es una variable aleatoria distribuida Normalmente con media 20.000 litros y desvío estándar 2.500 litros. Calcular: a) ¿Qué   porcentaje de los meses se consume menos de 24.000 litros?; b) ¿Qué   porcentaje de los meses se consume más de 18.000?; c) ¿Qué   porcentaje de los meses se consume entre 18.000 y 24.000?; d) ¿qué  capacidad debe tener un tanque para satisfacer el consumo mensual con 95% de confiabilidad?; e) ¿cuál es el consumo superado en el 90% de los meses?; f) de los meses que se consume menos de 24.000 litros, ¿qué porcen
 ```
 
 ### Tema V — Ejercicio 3  (follow_up)
@@ -308,7 +309,7 @@ En un establecimiento agropecuario, el 10% de los novillos que salen a venta pes
 
 ### Tema V — Ejercicio 8  (follow_up)
 
-**Motivo:** Faltan parámetros para calcular mediana y moda, y no se especifica si el aumento se aplica a todos o solo a algunos
+**Motivo:** Faltan datos para calcular mediana, modo y porcentajes de empleados
 **Resp. esperada:** a) Me = U$s 261,77 y Mo = U$s 175,17; b) 37,57%; c) 49,02%   d) (Con  = U$s 352 y  = U$s 247,5): Me = U$s 287,95 y Mo = U$s 192,69; 37,57%; 49,02%.
 
 ```
@@ -360,6 +361,15 @@ En un banco a las cuentas pertenecientes a actividades comerciales se les cobra 
 En una central telefónica se tiene, para la categoría familias, un consumo promedio bimestral por abonado de 850 pulsos, con un desvío estándar de 1.025 pulsos. Hay 200 pulsos libres, que tienen un abono fijo de 14 U$s y el costo de los pulsos adicionales es de 0,045 U$s/pulso. a) Escribir las expresiones que relacionan el consumo (en pulsos) con el importe a pagar por factura y la expresión del monto esperado por factura; b) Calcular dicho monto esperado; c) Si se sabe que en esta central hay 580 abonados con consumos inferiores a 200 pulsos, ¿cuántos habrá con consumos inferiores a la median
 ```
 
+### Tema VI — Ejercicio 4  (follow_up)
+
+**Motivo:** ¿Cuál es la probabilidad de éxito (valor de p, entre 0 y 1)?
+**Resp. esperada:** 0,4929.
+
+```
+Se tienen dos máquinas para fabricar caños por extrusión de 6 metros de longitud. Un inspector rechaza los caños con fallas; va primero a una máquina y necesita revisar 5 caños para encontrar uno fallado; en la otra lo halla al 3er. caño revisado. Se sabe que las fallas se producen al azar, en la máquina A con un promedio de 1 cada 30 m y en la B, de 1 cada 28 m. ¿Cuál es la probabilidad de que la primera inspección haya sido en la máquina B?
+```
+
 ### Tema VI — Ejercicio 5  (follow_up)
 
 **Motivo:** ¿Cuál es la probabilidad de éxito (valor de p, entre 0 y 1)?
@@ -398,7 +408,7 @@ Se tiene un lote de piezas mezcladas que han sido entregadas por dos proveedores
 
 ### Tema VI — Ejercicio 34  (follow_up)
 
-**Motivo:** Falta información sobre el costo por falla y el número promedio de metros en un rollo para calcular el costo medio de muestreo.
+**Motivo:** Falta información sobre el costo del metro en los rollos separados y no separados
 **Resp. esperada:** a) 2,14 fallas y 0,29 fallas, respectivamente; b) U$s 39,12.
 
 ```
@@ -430,13 +440,4 @@ En una fábrica hay tres máquinas, denominadas “A”, “B1” y “B2”. En
 
 ```
 En una máquina se bobinarán carreteles con hilo con un de título 0,04 gr/m (valor que se puede considerar constante para el hilo). El carretel lleno no debe pesar más de 500 gr (por exigencias de uso) y se desea que la probabilidad de que supere este valor sea de 0,01. En el carretel se bobinarán en promedio 10.000 metros de hilo, pero debido a la variabilidad en el frenado de la máquina, dicha longitud varía en ± 2,5% con una probabilidad de 0,99. Se desea conocer el peso promedio de los carreteles vacíos, sabiendo que, por razones de tolerancias constructivas, se tiene un desvío de 3 gr. (Su
-```
-
-### Tema VII — Ejercicio 14  (follow_up)
-
-**Motivo:** Falta varianza para cada vendedor para armar las distribuciones de probabilidad
-**Resp. esperada:** a) 0,8217; b) 0,3169; c) 18.124 unidades.
-
-```
-Una empresa tiene 3 vendedores: Pablo, Luis y José. Las ventas diarias (en unidades) de cada uno son sumamente variables y se conocen (por registros históricos) sus medias y sus desvíos, pero no las distribuciones de probabilidad. Dichas características (la media y el desvío) valen, para Pablo: 100 y 45 unidades respectivamente; para Luis: 120 y 30 unidades respectivamente, y, para José: 94 y 15 unidades respectivamente. Calcular: a) La probabilidad de que, en 40 días hábiles, Luis y José en conjunto dupliquen al menos las ventas de Pablo; b) la probabilidad de que, en 60 días hábiles, Luis ve
 ```

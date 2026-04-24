@@ -10,15 +10,31 @@ the canonical instructions to prepare the environment and launch the app
 the most common failure modes. Use it as the source of truth when the user
 asks "how do I run this?" or when you need to start the app as part of a task.
 
+## Workflow rule — leave the app running
+
+After finishing any feature or sprint, leave Streamlit running in the background so the user can test immediately. Default port `8501`; if taken, try `8502+` and report which URL. Do not kill the process at the end of the turn.
+
 ## What this project is
 
 A Python/Streamlit app that solves Statistics exercises (UADE - Ing. Sergio Anibal Dopazo) showing full **step-by-step workings** of each calculation. The web UI works offline with no API key; the CLI mode uses the Anthropic API.
 
 All application code lives in `APP/`. Theory PDFs are in `TEORIA/`. The exercise guide PDF is at the repo root.
 
+## App modes (sidebar)
+
+| Mode | Entry point | Purpose |
+|------|-------------|---------|
+| Modelos de Probabilidad | `app_streamlit.py` + `ui/components/continuous_ui.py` | Discrete (5) + continuous (9) + Multinomial + CustomPMF |
+| Datos Agrupados | `ui/components/data_processing_ui.py` | Tabla de frecuencias, media/var/CV, mediana, fractil, histograma, ogiva |
+| Probabilidad | `ui/components/probability_ui.py` | Two-event solver + Bayes / Probabilidad Total |
+| TCL / Suma de VA | `ui/components/tcl_ui.py` | Suma de independientes + aprox. normal |
+| Consultas Teóricas | `ui/components/theory_ui.py` | RAG sobre `TEORIA/` + Ollama |
+
 ## Running the app locally
 
-All commands must be run from `APP/`. Requires **Python 3.9+**.
+For day-to-day use, double-click `start.bat` (Windows) or run `./start.sh` (macOS/Linux) from the repo root. The scripts set up Ollama, precargan el modelo y lanzan Streamlit en `http://localhost:8501`.
+
+When you need to invoke Python directly (debugging, one-off tests), use the commands below. All commands must be run from `APP/`. Requires **Python 3.9+**.
 
 ### Windows
 
@@ -33,6 +49,7 @@ C:\Python314\python -m streamlit run app_streamlit.py
 
 :: CLI mode (requires ANTHROPIC_API_KEY in APP/.env)
 C:\Python314\python main.py
+C:\Python314\python main.py --streamlit
 ```
 
 ### macOS / Linux
@@ -52,11 +69,21 @@ python -m streamlit run app_streamlit.py
 
 # CLI mode (requires ANTHROPIC_API_KEY in APP/.env)
 python main.py
+python main.py --streamlit
 ```
 
 The app opens automatically at `http://localhost:8501`.
 
 **Note (Windows):** The `.venv` in `APP/` was originally created on macOS and does not work on Windows — packages must be installed directly into the system Python (`C:\Python314\python`).
+
+## Optional: Ollama (local LLM)
+
+Two features degrade silently without a local Ollama service:
+
+- **Consultas Teóricas** — returns "Respuesta no disponible momentáneamente."
+- **NL parser LLM fallback** — the regex parser still runs; only the smart retry is skipped.
+
+Setup (once): install Ollama, then `ollama pull qwen2.5:7b-instruct` and `ollama pull nomic-embed-text`. The `start.bat` / `start.sh` scripts handle the service lifecycle. Config lives in `APP/config/settings.py` (`OLLAMA_HOST`, `OLLAMA_MODEL`, fallback `qwen2.5:7b-instruct`).
 
 ## Architecture overview
 
@@ -84,13 +111,22 @@ UI components (ui/components/)        ← render steps, graphs, table
 
 ## Running tests
 
-Standalone tests (no pytest required) live in `APP/tests/`. Run from `APP/`:
+Standalone tests (no pytest) live in `APP/tests/`. Run from `APP/`.
+
+Full regression (covers Sprints 7/9/10/v2):
 
 ```bat
-C:\Python314\python tests/test_approximations.py
+C:\Python314\python tests\test_regression_v2.py
 ```
 
-Expected: 7/7 OK. Key verified value: `Fg(20/4;0.3)=0.8488` via Wilson-Hilferty.
+Focused suites:
+
+- `test_approximations.py` — Sprint 7 engine, 7/7 OK, key value `Fg(20/4;0.3)=0.8488`.
+- `test_guide_corpus.py` — itera los 180 ejercicios de la guía, escribe `coverage_report.md`.
+- `test_guide_index.py` — indexador del PDF (8/8 OK).
+- `test_sprint10.py` — Multinomial + TCL (8/8 OK).
+- `test_theory_flow.py`, `test_ollama_client.py`, `test_ui_invisibility.py`, `test_parser_llm_fallback.py` — Sprint v2 (skip si Ollama está off).
+- `MANUAL_REGRESSION_CHECKLIST.md` — 20 flujos UI a pasar a mano.
 
 ## Detailed guidance
 
@@ -103,6 +139,11 @@ Expected: 7/7 OK. Key verified value: `Fg(20/4;0.3)=0.8488` via Wilson-Hilferty.
 - Model formulas quick reference (all discrete and continuous distributions)
 - Approximation conditions table
 - Parser examples that break the flow (to fix with new rules)
+
+Other historical / forward-looking docs at the repo root:
+- `estadistica_v2.md` — Sprint v2 post-mortem (local fallback + Consultas Teóricas).
+- `APP/SPRINT_V3_PLAN.md` — scope of the next sprint.
+- `context.md` — longer-form project notes and decisions.
 
 ## Current implementation status
 
