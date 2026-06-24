@@ -52,26 +52,23 @@ class LinearTransformCalculator(ExtraCalculator):
 
         sb = StepBuilder(f"E({g_label}(X))")
         sb.add_step(
-            "Linealidad de la esperanza",
+            f"Linealidad de la esperanza (a = {_fmt(a)}, b = {_fmt(b)})",
             latex=rf"E({g_label}(X)) = E(a + b \cdot X) = a + b \cdot E(X)",
-            latex_sub=rf"a = {_fmt(a)},\quad b = {_fmt(b)}",
-            latex_res="",
             level_min=1,
         )
         sb.add_step(
             "Lectura de E(X) del modelo",
-            latex=r"E(X) = \mu_X",
-            latex_sub=rf"E(X) = {_fmt(mu)}",
-            latex_res=rf"E(X) = {_fmt(mu)}",
+            latex=rf"E(X) = \mu_X = {_fmt(mu)}",
             result=mu,
             level_min=2,
         )
         eg = a + b * mu
         sb.add_step(
             f"Resultado de E({g_label}(X))",
-            latex=rf"E({g_label}(X)) = a + b \cdot E(X)",
-            latex_sub=rf"E({g_label}(X)) = {_fmt(a)} + {_fmt(b)} \cdot {_fmt(mu)}",
-            latex_res=rf"E({g_label}(X)) = {_fmt(eg)}",
+            latex=(
+                rf"E({g_label}(X)) = a + b \cdot E(X) = "
+                rf"{_fmt(a)} + {_fmt(b)} \cdot {_fmt(mu)} = {_fmt(eg)}"
+            ),
             result=eg,
             level_min=1,
         )
@@ -85,17 +82,13 @@ class LinearTransformCalculator(ExtraCalculator):
 
         sb = StepBuilder(f"V({g_label}(X))")
         sb.add_step(
-            "Varianza de una transformación lineal",
+            f"Varianza de una transformación lineal (la constante a = {_fmt(a)} no aporta varianza; b = {_fmt(b)})",
             latex=rf"V({g_label}(X)) = V(a + b \cdot X) = b^2 \cdot V(X)",
-            latex_sub=rf"a = {_fmt(a)} \text{{ no aporta varianza}};\quad b = {_fmt(b)}",
-            latex_res="",
             level_min=1,
         )
         sb.add_step(
             "Lectura de V(X) del modelo",
-            latex=r"V(X) = \sigma^2_X",
-            latex_sub=rf"V(X) = {_fmt(var)}",
-            latex_res=rf"V(X) = {_fmt(var)}",
+            latex=rf"V(X) = \sigma^2_X = {_fmt(var)}",
             result=var,
             level_min=2,
         )
@@ -103,14 +96,18 @@ class LinearTransformCalculator(ExtraCalculator):
         sigma_g = math.sqrt(vg) if vg >= 0 and not _is_nan(vg) else float("nan")
         sb.add_step(
             f"Resultado de V({g_label}(X))",
-            latex=rf"V({g_label}(X)) = b^2 \cdot V(X)",
-            latex_sub=rf"V({g_label}(X)) = ({_fmt(b)})^2 \cdot {_fmt(var)}",
-            latex_res=(
-                rf"V({g_label}(X)) = {_fmt(vg)},\quad "
-                rf"\sigma_{{{g_label}}} = |b| \cdot \sigma_X = {_fmt(sigma_g)}"
+            latex=(
+                rf"V({g_label}(X)) = b^2 \cdot V(X) = "
+                rf"({_fmt(b)})^2 \cdot {_fmt(var)} = {_fmt(vg)}"
             ),
             result=vg,
             level_min=1,
+        )
+        sb.add_step(
+            f"Desvío estándar de {g_label}(X)",
+            latex=rf"\sigma_{{{g_label}}} = |b| \cdot \sigma_X = {_fmt(sigma_g)}",
+            result=sigma_g,
+            level_min=2,
         )
         return sb.build(final_value=vg, final_latex=_fmt(vg))
 

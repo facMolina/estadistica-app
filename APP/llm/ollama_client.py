@@ -24,7 +24,6 @@ import requests
 from config.settings import (
     LOG_DIR,
     OLLAMA_EMBED_MODEL,
-    OLLAMA_ENABLED,
     OLLAMA_HOST,
     OLLAMA_KEEP_ALIVE,
     OLLAMA_MODEL,
@@ -69,8 +68,6 @@ class OllamaClient:
     # Availability
     # ------------------------------------------------------------------
     def is_available(self) -> bool:
-        if not OLLAMA_ENABLED:
-            return False
         now = time.monotonic()
         if self._avail_cache and (now - self._avail_cache[0]) < _AVAILABILITY_TTL:
             return self._avail_cache[1]
@@ -118,6 +115,7 @@ class OllamaClient:
         temperature: float = 0.0,
         max_tokens: int = 2048,
         model: str | None = None,
+        think: bool | None = None,
     ) -> str:
         if not self.is_available():
             raise OllamaUnavailable("servicio Ollama no responde")
@@ -136,6 +134,8 @@ class OllamaClient:
         }
         if json_mode:
             payload["format"] = "json"
+        if think is not None:
+            payload["think"] = think
 
         start = time.monotonic()
         try:

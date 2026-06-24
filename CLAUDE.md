@@ -29,6 +29,7 @@ All application code lives in `APP/`. Theory PDFs are in `TEORIA/`. The exercise
 | Probabilidad | `ui/components/probability_ui.py` | Two-event solver + Bayes / Probabilidad Total |
 | TCL / Suma de VA | `ui/components/tcl_ui.py` | Suma de independientes + aprox. normal |
 | Consultas Teóricas | `ui/components/theory_ui.py` | RAG sobre `TEORIA/` + Ollama |
+| Formulario / Reconocimiento | `ui/components/formulario_ui.py` | Referencia estática offline, sin cálculo: tabla "qué distribución uso", reglas de derivación de parámetros, plantillas, tabla Z, errores comunes — con buscador por palabra clave |
 
 ## Running the app locally
 
@@ -39,7 +40,7 @@ When you need to invoke Python directly (debugging, one-off tests), use the comm
 ### Windows
 
 ```bat
-cd C:\Users\PC\Desktop\ESTADISTICA\APP
+cd C:\Users\PC\Documents\estadistica-app\APP
 
 :: Install dependencies (once)
 C:\Python314\python -m pip install -r requirements.txt
@@ -83,7 +84,11 @@ Two features degrade silently without a local Ollama service:
 - **Consultas Teóricas** — returns "Respuesta no disponible momentáneamente."
 - **NL parser LLM fallback** — the regex parser still runs; only the smart retry is skipped.
 
-Setup (once): install Ollama, then `ollama pull qwen2.5:7b-instruct` and `ollama pull nomic-embed-text`. The `start.bat` / `start.sh` scripts handle the service lifecycle. Config lives in `APP/config/settings.py` (`OLLAMA_HOST`, `OLLAMA_MODEL`, fallback `qwen2.5:7b-instruct`).
+Setup (once): install Ollama, then `ollama pull qwen3:8b` and `ollama pull nomic-embed-text`. The `start.bat` / `start.sh` scripts handle the service lifecycle. Config lives in `APP/config/settings.py` (`OLLAMA_HOST`, `OLLAMA_MODEL=qwen3:8b`, fallback `qwen2.5:14b-instruct`).
+
+**Qwen3 thinking mode:** `qwen3:8b` reasons by default (separate `message.thinking` field in Ollama's `/api/chat` response — never leaks into `message.content`, even in `json_mode`). `OllamaClient.chat()` accepts a `think: bool | None` param (maps to Ollama's `think` request field, supported since 0.30); the NL parser's LLM fallback (`interpreter/nl_parser.py::_fallback_with_llm`) passes `think=False` because the thinking pass adds ~10s/call with no benefit for a strict-JSON contract — confirmed via `tests/test_guide_corpus.py` (180-exercise corpus, ~48 LLM fallbacks): 8m39s with `think=False` vs. 35+ min stalled with thinking on. `theory/answerer.py`'s free-text RAG answers keep thinking on (single ad-hoc query, not batch, possible quality benefit).
+
+There is no manual on/off toggle — the app always attempts to use Ollama; if the service isn't running, `OllamaClient.is_available()`'s ping fails and the two features above degrade silently. The word "Ollama" is intentionally absent from any file under `ui/` (see `tests/test_ui_invisibility.py`'s literal-scan gate).
 
 ## Architecture overview
 
@@ -126,6 +131,7 @@ Focused suites:
 - `test_guide_index.py` — indexador del PDF (8/8 OK).
 - `test_sprint10.py` — Multinomial + TCL (8/8 OK).
 - `test_theory_flow.py`, `test_ollama_client.py`, `test_ui_invisibility.py`, `test_parser_llm_fallback.py` — Sprint v2 (skip si Ollama está off).
+- `test_examenes_2do_parcial.py` — 2º parcial: resuelve los modelos/parciales reales de `EJEMPLOS/` end-to-end (derivación de parámetros, redondeo cátedra, Bayes continuo, esperanza condicional). 9/9 OK. No está encadenado en `test_regression_v2.py`; correr suelto.
 - `MANUAL_REGRESSION_CHECKLIST.md` — 20 flujos UI a pasar a mano.
 
 ## Detailed guidance
@@ -141,9 +147,7 @@ Focused suites:
 - Parser examples that break the flow (to fix with new rules)
 
 Other historical / forward-looking docs at the repo root:
-- `estadistica_v2.md` — Sprint v2 post-mortem (local fallback + Consultas Teóricas).
-- `APP/SPRINT_V3_PLAN.md` — scope of the next sprint.
-- `context.md` — longer-form project notes and decisions.
+- `context.md` — longer-form project notes, decisions, and pending backlog.
 
 ## Current implementation status
 
@@ -162,3 +166,5 @@ Other historical / forward-looking docs at the repo root:
 | Guide PDF exercise mode ("tema III ejercicio 8" → extract enunciado → NL parser) | Done (Sprint 9) |
 | Multinomial (discrete multivariate) + TCL / Sum of RVs module + guide corpus test suite | Done (Sprint 10) |
 | CustomPMF + local reasoning fallback + Consultas Teóricas (RAG + LaTeX) + invisibility gate — optional local service, app degrades silently without it | Done (Sprint v2) |
+| 2º parcial: cátedra rounding (`statistics_common._custom_round`, half-up ≥5) + Z-table (`calculation/normal_table.py`) + parameter derivation from indirect data (`models/continuous/derivations.py`: percentiles, mean+variance, mean+mode, mean+rate...) + cátedra step-by-step for Normal/Log-Normal (table lookup) and Gamma (Poisson method / Wilson-Hilferty) + conditional expectation (tail/cap) + Bayes continuo (`probability/bayes_continuo.py`) + Formulario mode | Done (2026-06-23) |
+| Sprint v3: extensible "Cálculos extra" tab (`ui/components/extras/`, registry pattern) — `LinearTransformCalculator` for `E(a+b·X)`/`V(a+b·X)`, wired into discrete, CustomPMF and continuous flows | Done (2026-06-23) |

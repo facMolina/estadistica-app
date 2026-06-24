@@ -25,7 +25,14 @@ from probability.basic import (
     solve_two_events,
 )
 from probability.bayes import BayesCalc
+from probability.bayes_continuo import (
+    bayes_continuo_point,
+    bayes_continuo_tail_right,
+    bayes_continuo_tail_left,
+    bayes_continuo_same_model_thresholds,
+)
 from ui.components.step_display import render_calc_result
+from ui.components.continuous_ui import CONTINUOUS_MODELS, _instantiate
 from calculation.statistics_common import format_number
 
 
@@ -36,7 +43,28 @@ from calculation.statistics_common import format_number
 _SUBMODES = [
     "Probabilidad de eventos",
     "Bayes / Probabilidad Total",
+    "Bayes continuo",
 ]
+
+_EVIDENCE_KINDS = [
+    "Valor puntual observado — f(x)",
+    "Cola derecha observada — P(X > x)",
+    "Cola izquierda observada — P(X < x)",
+    "Una distribución, umbral propio por hipótesis (ej. fósforos)",
+]
+
+# Definicion de parametros por modelo: (clave_para_instanciar, etiqueta_columna, default)
+_BAYES_CONT_PARAM_DEFS = {
+    "Normal":      [("mu", "mu", 0.0), ("sigma", "sigma", 1.0)],
+    "Log-Normal":  [("m", "m", 0.0), ("D", "D", 1.0)],
+    "Exponencial": [("lam", "lambda", 1.0)],
+    "Gamma":       [("r", "r", 2.0), ("lam", "lambda", 1.0)],
+    "Weibull":     [("beta", "beta", 1.0), ("omega", "omega", 2.0)],
+    "Gumbel Max":  [("beta", "beta", 1.0), ("theta", "theta", 0.0)],
+    "Gumbel Min":  [("beta", "beta", 1.0), ("theta", "theta", 0.0)],
+    "Pareto":      [("theta", "theta", 1.0), ("b", "b", 2.0)],
+    "Uniforme":    [("a", "a", 0.0), ("b", "b", 1.0)],
+}
 
 # Opciones para el multiselect de datos conocidos
 _KNOWN_OPTIONS = [
@@ -84,8 +112,10 @@ def render_probability_sidebar() -> Dict[str, Any]:
 
     if submode == "Probabilidad de eventos":
         params.update(_sidebar_two_events())
-    else:
+    elif submode == "Bayes / Probabilidad Total":
         params.update(_sidebar_bayes())
+    else:
+        params.update(_sidebar_bayes_continuo())
 
     return params
 
@@ -246,6 +276,144 @@ def _sidebar_bayes() -> Dict[str, Any]:
     return {"evidence_label": evidence_label, "bc": bc}
 
 
+def _bayes_cont_sample_df(modelo: str) -> pd.DataFrame:
+    pdefs = _BAYES_CONT_PARAM_DEFS[modelo]
+    data = {"Hipotesis": ["H1", "H2"], "P(Hi)": [0.5, 0.5]}
+    for _, label, default in pdefs:
+        data[label] = [default, default]
+    return pd.DataFrame(data)
+
+
+def _sidebar_bayes_continuo() -> Dict[str, Any]:
+    st.subheader("Bayes continuo")
+    st.caption(
+        "Combina probabilidades a priori P(Hi) con una verosimilitud calculada "
+        "a partir de modelos continuos (densidad puntual, F(x) o G(x))."
+    )
+    evidence_kind = st.selectbox("Tipo de evidencia observada", _EVIDENCE_KINDS, key="bc_evidence_kind")
+
+    result: Dict[str, Any] = {"evidence_kind": evidence_kind, "error": None}
+
+    if evidence_kind == _EVIDENCE_KINDS[3]:
+        result.update(_sidebar_bayes_continuo_shared_threshold())
+        return result
+
+    result.update(_sidebar_bayes_continuo_per_hypothesis(evidence_kind))
+    return result
+
+
+def _sidebar_bayes_continuo_shared_threshold() -> Dict[str, Any]:
+    """Caso 'fosforos': UNA sola distribucion, umbral propio por hipotesis."""
+    out: Dict[str, Any] = {}
+    modelo = st.selectbox("Modelo (compartido por todas las hipótesis)", CONTINUOUS_MODELS,
+                           key="bc_shared_model")
+    st.caption("Parámetros de la distribución compartida")
+    shared_params = {}
+    for key, label, default in _BAYES_CONT_PARAM_DEFS[modelo]:
+        shared_params[key] = st.number_input(label, value=float(default),
+                                              step=0.5, format="%.4f", key=f"bc_shared_{key}")
+    tail_label = st.radio("La evidencia observada es...", ["X < umbral (F)", "X > umbral (G)"],
+                           horizontal=True, key="bc_tail")
+    tail = "left" if tail_label.startswith("X <") else "right"
+    evidence_label = st.text_input("Nombre del evento evidencia", value="E", key="bc_ev_label")
+
+    if "bc_thresh_df" not in st.session_state:
+        st.session_state["bc_thresh_df"] = pd.DataFrame({
+            "Hipotesis": ["H1", "H2"], "P(Hi)": [0.5, 0.5], "Umbral": [1.0, 2.0],
+        })
+    df_edited = st.data_editor(
+        st.session_state["bc_thresh_df"], num_rows="dynamic", use_container_width=True,
+        column_config={
+            "Hipotesis": st.column_config.TextColumn("Hipotesis Hi"),
+            "P(Hi)": st.column_config.NumberColumn("P(Hi)", min_value=0.0, max_value=1.0, format="%.4f"),
+            "Umbral": st.column_config.NumberColumn("Umbral (propio de Hi)", format="%.4f"),
+        },
+        key="bc_thresh_editor",
+    )
+    st.session_state["bc_thresh_df"] = df_edited
+
+    try:
+        model = _instantiate(modelo, shared_params)
+    except Exception as exc:
+        out["error"] = str(exc)
+        return out
+
+    try:
+        df_clean = df_edited.dropna(subset=["Hipotesis", "P(Hi)", "Umbral"])
+        if len(df_clean) < 2:
+            out["error"] = "Ingresá al menos 2 hipótesis."
+            return out
+        labels = df_clean["Hipotesis"].astype(str).tolist()
+        priors = df_clean["P(Hi)"].astype(float).tolist()
+        thresholds = df_clean["Umbral"].astype(float).tolist()
+        sum_p = sum(priors)
+        if abs(sum_p - 1.0) > 0.02:
+            st.warning(f"Las probabilidades a priori suman {format_number(sum_p, 4)} (deberían sumar 1).")
+        bc, cr = bayes_continuo_same_model_thresholds(
+            labels, priors, model, thresholds, tail=tail, evidence_label=evidence_label,
+        )
+        out.update({"bc": bc, "result": cr, "evidence_label": evidence_label})
+    except Exception as exc:
+        out["error"] = str(exc)
+    return out
+
+
+def _sidebar_bayes_continuo_per_hypothesis(evidence_kind: str) -> Dict[str, Any]:
+    """Caso general: cada hipotesis tiene su propia instancia del mismo tipo
+    de modelo (ej. dos Pareto distintas), evaluada en un x compartido."""
+    out: Dict[str, Any] = {}
+    modelo = st.selectbox("Modelo (mismo tipo, parámetros propios por hipótesis)",
+                           CONTINUOUS_MODELS, key="bc_model")
+    pdefs = _BAYES_CONT_PARAM_DEFS[modelo]
+    evidence_label_default = {
+        _EVIDENCE_KINDS[0]: "X=x", _EVIDENCE_KINDS[1]: "X>x", _EVIDENCE_KINDS[2]: "X<x",
+    }[evidence_kind]
+
+    if (st.session_state.get("bc_params_df_model") != modelo
+            or "bc_params_df" not in st.session_state):
+        st.session_state["bc_params_df"] = _bayes_cont_sample_df(modelo)
+        st.session_state["bc_params_df_model"] = modelo
+
+    st.caption("Una fila por hipótesis — cada una con sus propios parámetros")
+    df_edited = st.data_editor(
+        st.session_state["bc_params_df"], num_rows="dynamic", use_container_width=True,
+        key="bc_params_editor",
+    )
+    st.session_state["bc_params_df"] = df_edited
+
+    x_val = st.number_input("x (valor/umbral observado, compartido)", value=1.0, step=0.5,
+                             format="%.4f", key="bc_x")
+    evidence_label = st.text_input("Nombre del evento evidencia", value=evidence_label_default,
+                                    key=f"bc_ev_label2_{evidence_kind}")
+
+    try:
+        param_cols = [label for _, label, _ in pdefs]
+        df_clean = df_edited.dropna(subset=["Hipotesis", "P(Hi)"] + param_cols)
+        if len(df_clean) < 2:
+            out["error"] = "Ingresá al menos 2 hipótesis."
+            return out
+        labels = df_clean["Hipotesis"].astype(str).tolist()
+        priors = df_clean["P(Hi)"].astype(float).tolist()
+        sum_p = sum(priors)
+        if abs(sum_p - 1.0) > 0.02:
+            st.warning(f"Las probabilidades a priori suman {format_number(sum_p, 4)} (deberían sumar 1).")
+        models = []
+        for _, row in df_clean.iterrows():
+            p = {key: float(row[label]) for key, label, _ in pdefs}
+            models.append(_instantiate(modelo, p))
+
+        if evidence_kind == _EVIDENCE_KINDS[0]:
+            bc, cr = bayes_continuo_point(labels, priors, models, x_val, evidence_label)
+        elif evidence_kind == _EVIDENCE_KINDS[1]:
+            bc, cr = bayes_continuo_tail_right(labels, priors, models, x_val, evidence_label)
+        else:
+            bc, cr = bayes_continuo_tail_left(labels, priors, models, x_val, evidence_label)
+        out.update({"bc": bc, "result": cr, "evidence_label": evidence_label})
+    except Exception as exc:
+        out["error"] = str(exc)
+    return out
+
+
 # ---------------------------------------------------------------------------
 # Contenido principal
 # ---------------------------------------------------------------------------
@@ -255,8 +423,10 @@ def render_probability_main(params: Dict[str, Any], detail_level: int) -> None:
 
     if submode == "Probabilidad de eventos":
         _render_two_events(params, detail_level)
-    else:
+    elif submode == "Bayes / Probabilidad Total":
         _render_bayes(params, detail_level)
+    else:
+        _render_bayes_continuo(params, detail_level)
 
 
 # ---------------------------------------------------------------------------
@@ -356,6 +526,42 @@ def _render_bayes(params: Dict[str, Any], detail_level: int) -> None:
         st.markdown("---")
         st.subheader("Desarrollo completo")
         render_calc_result(bc.solve(), detail_level)
+
+    with tab_tabla:
+        _render_bayes_table(bc)
+
+
+def _render_bayes_continuo(params: Dict[str, Any], detail_level: int) -> None:
+    error = params.get("error")
+    if error:
+        st.error(error)
+        return
+
+    bc: Optional[BayesCalc] = params.get("bc")
+    cr = params.get("result")
+    if bc is None or cr is None:
+        st.info("Completá los datos de las hipótesis en el panel lateral.")
+        return
+
+    ev = params.get("evidence_label", "E")
+    tab_calc, tab_tabla = st.tabs(["Calculo Paso a Paso", "Tabla de Bayes"])
+
+    with tab_calc:
+        posts = bc.posteriors()
+        n = len(posts)
+        cols = st.columns(min(n, 4))
+        for i, (label, post) in enumerate(posts):
+            cols[i % 4].metric(
+                f"P({label}|{ev})",
+                f"{format_number(post * 100, 2)} %",
+            )
+        cols_extra = st.columns(2)
+        cols_extra[0].metric(f"P({ev})", format_number(bc.prob_evidence(), 6))
+        cols_extra[1].metric("Suma posteriors", format_number(sum(p for _, p in posts), 6))
+
+        st.markdown("---")
+        st.subheader("Desarrollo completo")
+        render_calc_result(cr, detail_level)
 
     with tab_tabla:
         _render_bayes_table(bc)

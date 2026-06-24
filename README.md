@@ -64,7 +64,7 @@ C:\Python314\python -m pip install -r requirements.txt
 :: 3) Ollama (opcional pero recomendado — habilita Consultas Teoricas
 ::    y el fallback inteligente del interprete).
 ::    Descargar desde https://ollama.com/download/windows
-ollama pull qwen2.5:7b-instruct
+ollama pull qwen3:8b
 ollama pull nomic-embed-text
 ```
 
@@ -83,7 +83,7 @@ deactivate
 
 # 3) Ollama (opcional pero recomendado)
 brew install ollama
-ollama pull qwen2.5:7b-instruct
+ollama pull qwen3:8b
 ollama pull nomic-embed-text
 ```
 

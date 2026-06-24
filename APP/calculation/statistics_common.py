@@ -1,7 +1,7 @@
 """Funciones estadisticas comunes para todas las distribuciones."""
 
 import math
-from decimal import Decimal, ROUND_DOWN
+from decimal import Decimal, ROUND_DOWN, ROUND_HALF_UP
 from typing import Callable, Tuple, Optional
 from calculation.step_types import CalcResult
 from calculation.step_engine import StepBuilder
@@ -106,36 +106,29 @@ def build_full_table_discrete(prob_func: Callable[[int], float],
 
 
 def _custom_round(value: float, decimals: int) -> float:
-    """Trunca a *decimals* decimales; sube el último dígito solo si el siguiente es >= 6.
+    """Redondea a *decimals* decimales con la convención del parcial: medio hacia arriba.
 
-    Regla de cátedra:
-        5.º dígito >= 6 → el 4.º sube 1
-        5.º dígito <= 5 → el 4.º queda igual
-    Ejemplo: 0.55648 → 0.5565 | 0.55645 → 0.5564
+    Regla de la cátedra (enunciado del 2.º parcial): "trabajar con 4 cifras
+    después de la coma y redondear hacia arriba", con el ejemplo textual
+    ``4,11115 → 4,1112``. Es decir: si el dígito que se descarta es ≥ 5, el
+    último dígito conservado sube 1.
+
+    Ejemplos: 4.11115 → 4.1112 | 0.55645 → 0.5565 | 0.55644 → 0.5564
     """
     if value == 0:
         return 0.0
-    d = Decimal(str(value))
-    sign = 1 if d >= 0 else -1
-    d = abs(d)
-
-    step = Decimal(10) ** -decimals
-    truncated = (d / step).to_integral_value(rounding=ROUND_DOWN) * step
-
-    step_extra = Decimal(10) ** -(decimals + 1)
-    extended = (d / step_extra).to_integral_value(rounding=ROUND_DOWN)
-    next_digit = int(extended % 10)
-
-    if next_digit >= 6:
-        truncated += step
-
-    return float(sign * truncated)
+    try:
+        d = Decimal(str(value))
+    except (ValueError, ArithmeticError):
+        return value
+    q = Decimal(10) ** -decimals
+    return float(d.quantize(q, rounding=ROUND_HALF_UP))
 
 
 def format_number(value: float, decimals: int = 4) -> str:
     """Formatea un número con hasta *decimals* cifras decimales.
 
-    Usa redondeo de cátedra: sube el último dígito solo si el siguiente es >= 6.
+    Usa el redondeo del parcial (medio hacia arriba: el 5.º decimal ≥5 sube el 4.º).
     Enteros se muestran sin decimales (ej. 495 → '495').
     Si no se pierde información al truncar, no agrega ceros de relleno
     (ej. 1.5 → '1.5', pero 1.50001 → '1.5000').

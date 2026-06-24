@@ -13,8 +13,6 @@ import math
 from dataclasses import dataclass, field
 from typing import List, Optional, Sequence
 
-from scipy import stats as _st
-
 from calculation.step_engine import StepBuilder
 from calculation.step_types import CalcResult
 from calculation.statistics_common import format_number
@@ -185,12 +183,13 @@ class SumOfRVs:
         return self.total_count >= threshold
 
     def _standardize_and_phi(self, s: float) -> tuple[float, float, float, float]:
+        from calculation.normal_table import phi as _phi_table
         mu = self.expected_value_raw()
         sigma = self.std_dev_raw()
         if sigma <= 0:
             raise ValueError("σ(S) = 0: no se puede estandarizar (varianza total nula)")
         z = (s - mu) / sigma
-        phi = float(_st.norm.cdf(z))
+        phi = _phi_table(z)
         return mu, sigma, z, phi
 
     def _header_steps(self, builder: StepBuilder) -> None:
@@ -236,7 +235,9 @@ class SumOfRVs:
         raise ValueError(f"query_type no soportado: {query_type}")
 
     def _cdf_left(self, s: float) -> CalcResult:
+        from calculation.normal_table import fmt_z
         mu, sigma, z, phi = self._standardize_and_phi(s)
+        z_t = fmt_z(z)
         builder = StepBuilder(f"P(S ≤ {s})")
         self._header_steps(builder)
         builder.add_step(
@@ -246,26 +247,28 @@ class SumOfRVs:
             level_min=1,
         )
         builder.add_step(
-            desc=f"Z = ({format_number(s)} − {format_number(mu)}) / {format_number(sigma)} = {format_number(z, 4)}",
+            desc=f"Z = ({format_number(s)} − {format_number(mu)}) / {format_number(sigma)} = {format_number(z_t)}",
             latex=rf"Z = \frac{{{format_number(s)} - {format_number(mu)}}}"
-                  rf"{{{format_number(sigma)}}} = {format_number(z, 4)}",
-            result=z,
+                  rf"{{{format_number(sigma)}}} = {format_number(z_t)}",
+            result=z_t,
             level_min=1,
         )
         builder.add_step(
-            desc=f"P(S ≤ {s}) = Φ({format_number(z, 4)}) = {format_number(phi, 6)}",
-            latex=rf"P(S \leq {format_number(s)}) = \Phi({format_number(z, 4)}) = {format_number(phi, 6)}",
+            desc=f"De tabla Z: P(S ≤ {s}) = Φ({format_number(z_t)}) = {format_number(phi)}",
+            latex=rf"P(S \leq {format_number(s)}) = \Phi({format_number(z_t)}) = {format_number(phi)}",
             result=phi,
             level_min=1,
         )
         return builder.build(
             final_value=phi,
-            final_latex=rf"P(S \leq {format_number(s)}) = {format_number(phi, 6)}",
+            final_latex=rf"P(S \leq {format_number(s)}) = {format_number(phi)}",
         )
 
     def _cdf_right(self, s: float) -> CalcResult:
+        from calculation.normal_table import fmt_z
         mu, sigma, z, phi = self._standardize_and_phi(s)
-        prob = 1.0 - phi
+        z_t = fmt_z(z)
+        prob = round(1.0 - phi, 4)
         builder = StepBuilder(f"P(S ≥ {s})")
         self._header_steps(builder)
         builder.add_step(
@@ -274,24 +277,25 @@ class SumOfRVs:
             level_min=1,
         )
         builder.add_step(
-            desc=f"Z = ({format_number(s)} − {format_number(mu)}) / {format_number(sigma)} = {format_number(z, 4)}",
+            desc=f"Z = ({format_number(s)} − {format_number(mu)}) / {format_number(sigma)} = {format_number(z_t)}",
             latex=rf"Z = \frac{{{format_number(s)} - {format_number(mu)}}}"
-                  rf"{{{format_number(sigma)}}} = {format_number(z, 4)}",
-            result=z,
+                  rf"{{{format_number(sigma)}}} = {format_number(z_t)}",
+            result=z_t,
             level_min=1,
         )
         builder.add_step(
-            desc=f"P(S ≥ {s}) = 1 − Φ({format_number(z, 4)}) = {format_number(prob, 6)}",
-            latex=rf"P(S \geq {format_number(s)}) = 1 - \Phi({format_number(z, 4)}) = {format_number(prob, 6)}",
+            desc=f"De tabla Z: P(S ≥ {s}) = 1 − Φ({format_number(z_t)}) = {format_number(prob)}",
+            latex=rf"P(S \geq {format_number(s)}) = 1 - \Phi({format_number(z_t)}) = {format_number(prob)}",
             result=prob,
             level_min=1,
         )
         return builder.build(
             final_value=prob,
-            final_latex=rf"P(S \geq {format_number(s)}) = {format_number(prob, 6)}",
+            final_latex=rf"P(S \geq {format_number(s)}) = {format_number(prob)}",
         )
 
     def _range(self, a: float, b: float) -> CalcResult:
+        from calculation.normal_table import phi as _phi_table, fmt_z
         if a > b:
             a, b = b, a
         mu = self.expected_value_raw()
@@ -300,9 +304,10 @@ class SumOfRVs:
             raise ValueError("σ(S) = 0: no se puede estandarizar")
         za = (a - mu) / sigma
         zb = (b - mu) / sigma
-        phi_a = float(_st.norm.cdf(za))
-        phi_b = float(_st.norm.cdf(zb))
-        prob = phi_b - phi_a
+        za_t, zb_t = fmt_z(za), fmt_z(zb)
+        phi_a = _phi_table(za)
+        phi_b = _phi_table(zb)
+        prob = round(phi_b - phi_a, 4)
         builder = StepBuilder(f"P({a} ≤ S ≤ {b})")
         self._header_steps(builder)
         builder.add_step(
@@ -311,39 +316,40 @@ class SumOfRVs:
             level_min=1,
         )
         builder.add_step(
-            desc=f"Za = ({format_number(a)} − {format_number(mu)}) / {format_number(sigma)} = {format_number(za, 4)}",
+            desc=f"Za = ({format_number(a)} − {format_number(mu)}) / {format_number(sigma)} = {format_number(za_t)}",
             latex=rf"Z_a = \frac{{{format_number(a)} - {format_number(mu)}}}"
-                  rf"{{{format_number(sigma)}}} = {format_number(za, 4)}",
-            result=za,
+                  rf"{{{format_number(sigma)}}} = {format_number(za_t)}",
+            result=za_t,
             level_min=2,
         )
         builder.add_step(
-            desc=f"Zb = ({format_number(b)} − {format_number(mu)}) / {format_number(sigma)} = {format_number(zb, 4)}",
+            desc=f"Zb = ({format_number(b)} − {format_number(mu)}) / {format_number(sigma)} = {format_number(zb_t)}",
             latex=rf"Z_b = \frac{{{format_number(b)} - {format_number(mu)}}}"
-                  rf"{{{format_number(sigma)}}} = {format_number(zb, 4)}",
-            result=zb,
+                  rf"{{{format_number(sigma)}}} = {format_number(zb_t)}",
+            result=zb_t,
             level_min=2,
         )
         builder.add_step(
-            desc=(f"P({a} ≤ S ≤ {b}) = Φ({format_number(zb, 4)}) − Φ({format_number(za, 4)}) "
-                  f"= {format_number(phi_b, 6)} − {format_number(phi_a, 6)} = {format_number(prob, 6)}"),
+            desc=(f"P({a} ≤ S ≤ {b}) = Φ({format_number(zb_t)}) − Φ({format_number(za_t)}) "
+                  f"= {format_number(phi_b)} − {format_number(phi_a)} = {format_number(prob)}  (tabla Z)"),
             latex=(rf"P({format_number(a)} \leq S \leq {format_number(b)}) = "
-                   rf"\Phi({format_number(zb, 4)}) - \Phi({format_number(za, 4)}) = "
-                   rf"{format_number(prob, 6)}"),
+                   rf"\Phi({format_number(zb_t)}) - \Phi({format_number(za_t)}) = "
+                   rf"{format_number(prob)}"),
             result=prob,
             level_min=1,
         )
         return builder.build(
             final_value=prob,
-            final_latex=rf"P({format_number(a)} \leq S \leq {format_number(b)}) = {format_number(prob, 6)}",
+            final_latex=rf"P({format_number(a)} \leq S \leq {format_number(b)}) = {format_number(prob)}",
         )
 
     def _fractile(self, alpha: float) -> CalcResult:
+        from calculation.normal_table import z_critico
         if not (0.0 < alpha < 1.0):
             raise ValueError(f"alpha debe estar en (0,1); recibí {alpha}")
         mu = self.expected_value_raw()
         sigma = self.std_dev_raw()
-        z_alpha = float(_st.norm.ppf(alpha))
+        z_alpha = z_critico(alpha)
         s_alpha = mu + z_alpha * sigma
         builder = StepBuilder(f"s({alpha})")
         self._header_steps(builder)
@@ -353,14 +359,14 @@ class SumOfRVs:
             level_min=1,
         )
         builder.add_step(
-            desc=f"Z({alpha}) = {format_number(z_alpha, 4)}  (de tabla Normal estándar)",
-            latex=rf"Z({alpha}) = {format_number(z_alpha, 4)}",
+            desc=f"Z({alpha}) = {format_number(z_alpha)}  (de tabla Normal estándar)",
+            latex=rf"Z({alpha}) = {format_number(z_alpha)}",
             result=z_alpha,
             level_min=2,
         )
         builder.add_step(
             desc=f"s(α) = μS + Z(α)·σS = {format_number(s_alpha, 4)}",
-            latex=rf"s({alpha}) = {format_number(mu)} + {format_number(z_alpha, 4)} "
+            latex=rf"s({alpha}) = {format_number(mu)} + {format_number(z_alpha)} "
                   rf"\cdot {format_number(sigma)} = {format_number(s_alpha, 4)}",
             result=s_alpha,
             level_min=1,

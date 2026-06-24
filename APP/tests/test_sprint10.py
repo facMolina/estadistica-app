@@ -25,8 +25,7 @@ if _APP not in sys.path:
 from models.discrete.multinomial import Multinomial
 from models.discrete.binomial import Binomial
 from tcl.sum_of_rvs import SumOfRVs, Component
-
-from scipy import stats as _st
+from calculation.normal_table import phi as _phi_table, z_critico as _z_critico
 
 
 TOL_STRICT = 1e-9
@@ -114,9 +113,9 @@ def test_sum_of_rvs_identical():
     _assert_close(s.expected_value_raw(), 15.0, TOL_STRICT, "E(S) = 15")
     _assert_close(s.variance_raw(), 7.5, TOL_STRICT, "V(S) = 7.5")
 
-    # P(S ≤ 10) vía TCL  = Φ((10 − 15)/√7.5) ≈ 0.0339
+    # P(S ≤ 10) vía TCL (tabla Z)  = Φ((10 − 15)/√7.5)
     res = s.probability("cdf_left", s=10)
-    expected = float(_st.norm.cdf((10 - 15) / math.sqrt(7.5)))
+    expected = _phi_table((10 - 15) / math.sqrt(7.5))
     _assert_close(res.final_value, expected, TOL_STRICT, "P(S ≤ 10) = Φ(-5/√7.5)")
 
 
@@ -134,18 +133,18 @@ def test_sum_of_rvs_mixed():
     _assert_close(s.variance_raw(), 41.0, TOL_STRICT, "V(S) = 41")
 
     res = s.probability("cdf_left", s=160)
-    expected = float(_st.norm.cdf((160 - 150) / math.sqrt(41)))
+    expected = _phi_table((160 - 150) / math.sqrt(41))
     _assert_close(res.final_value, expected, TOL_STRICT, "P(S ≤ 160)")
 
-    # Range query
+    # Range query (tabla Z, redondeada a 4 decimales como en la cátedra)
     res_r = s.probability("range", a=140, b=160)
-    expected_r = (float(_st.norm.cdf((160 - 150) / math.sqrt(41)))
-                  - float(_st.norm.cdf((140 - 150) / math.sqrt(41))))
+    expected_r = round(_phi_table((160 - 150) / math.sqrt(41))
+                        - _phi_table((140 - 150) / math.sqrt(41)), 4)
     _assert_close(res_r.final_value, expected_r, TOL_STRICT, "P(140 ≤ S ≤ 160)")
 
     # Fractile α=0.95
     res_f = s.probability("fractile", alpha=0.95)
-    expected_f = 150 + float(_st.norm.ppf(0.95)) * math.sqrt(41)
+    expected_f = 150 + _z_critico(0.95) * math.sqrt(41)
     _assert_close(res_f.final_value, expected_f, TOL_STRICT, "s(0.95)")
 
 
@@ -165,7 +164,7 @@ def test_sum_of_rvs_probability_steps():
     steps_l1 = res.get_steps_for_level(1)
     steps_l3 = res.get_steps_for_level(3)
     assert len(steps_l1) <= len(steps_l3), "level 1 debería tener ≤ pasos que level 3"
-    expected = float(_st.norm.cdf((160 - 150) / math.sqrt(41)))
+    expected = _phi_table((160 - 150) / math.sqrt(41))
     _assert_close(res.final_value, expected, TOL_STRICT, "final_value == Φ(Z)")
     print(f"  OK steps L1={len(steps_l1)}, L3={len(steps_l3)}")
 

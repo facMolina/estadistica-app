@@ -14,7 +14,7 @@ echo.
 echo === Precargando modelo (asi la primera respuesta sale rapida) ===
 curl -s -X POST http://127.0.0.1:11434/api/generate ^
   -H "Content-Type: application/json" ^
-  -d "{\"model\":\"qwen2.5:7b-instruct\",\"prompt\":\"\",\"stream\":false,\"keep_alive\":\"2h\"}" ^
+  -d "{\"model\":\"qwen3:8b\",\"prompt\":\"\",\"stream\":false,\"keep_alive\":\"2h\"}" ^
   -o nul -w "  warmup HTTP %%{http_code} en %%{time_total}s\n" 2>nul
 
 echo.

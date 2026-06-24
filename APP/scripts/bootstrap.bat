@@ -19,10 +19,10 @@ if errorlevel 1 (
 
 REM Verificar modelos. Si no están, los descarga en background.
 ollama list >> "%LOG%" 2>&1
-ollama list | findstr /I "qwen2.5:14b-instruct" >nul
+ollama list | findstr /I "qwen3:8b" >nul
 if errorlevel 1 (
-    echo [%date% %time%] pulling qwen2.5:14b-instruct >> "%LOG%"
-    ollama pull qwen2.5:14b-instruct >> "%LOG%" 2>&1
+    echo [%date% %time%] pulling qwen3:8b >> "%LOG%"
+    ollama pull qwen3:8b >> "%LOG%" 2>&1
 )
 
 ollama list | findstr /I "nomic-embed-text" >nul

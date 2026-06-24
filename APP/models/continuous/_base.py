@@ -110,6 +110,67 @@ class ContinuousBase(ContinuousModel):
         return builder.build(final_value=hval, final_latex=rf"H({x}) = {format_number(hval, 6)}")
 
     # ------------------------------------------------------------------
+    # cond_expectation_left — E[X | X < a] = H(a) / F(a)
+    # ------------------------------------------------------------------
+
+    def cond_expectation_left(self, a: float):
+        h_res = self.partial_expectation_left(a)
+        f_res = self.cdf_left(a)
+        fa = f_res.final_value
+        val = h_res.final_value / fa if fa > 1e-15 else float("nan")
+        builder = StepBuilder(f"E(X|X<{a})")
+        builder.add_step(
+            desc="Esperanza condicional (cola izquierda): E(X|X<a) = H(a) / F(a)",
+            latex=r"E(X|X<a) = \frac{H(a)}{F(a)}",
+            level_min=1,
+        )
+        builder.add_step(
+            desc=f"H({a}) = {format_number(h_res.final_value, 6)}  ;  F({a}) = {format_number(fa, 6)}",
+            latex=rf"H({a}) = {format_number(h_res.final_value, 6)} \quad F({a}) = {format_number(fa, 6)}",
+            level_min=2,
+        )
+        builder.add_step(
+            desc=f"E(X|X<{a}) = {format_number(h_res.final_value, 6)} / {format_number(fa, 6)} = {format_number(val, 6)}",
+            latex=(rf"E(X|X<{a}) = \frac{{{format_number(h_res.final_value, 6)}}}{{{format_number(fa, 6)}}}"
+                   rf" = {format_number(val, 6)}"),
+            result=val,
+            level_min=1,
+        )
+        return builder.build(final_value=val, final_latex=rf"E(X|X<{a}) = {format_number(val, 6)}")
+
+    # ------------------------------------------------------------------
+    # cond_expectation_right — E[X | X > k] = (μ − H(k)) / G(k)
+    # ------------------------------------------------------------------
+
+    def cond_expectation_right(self, k: float):
+        mu = self.mean().final_value
+        h_res = self.partial_expectation_left(k)
+        g_res = self.cdf_right(k)
+        gk = g_res.final_value
+        val = (mu - h_res.final_value) / gk if gk > 1e-15 else float("nan")
+        builder = StepBuilder(f"E(X|X>{k})")
+        builder.add_step(
+            desc="Esperanza condicional (cola derecha): E(X|X>k) = (μ − H(k)) / G(k)",
+            latex=r"E(X|X>k) = \frac{\mu - H(k)}{G(k)}",
+            level_min=1,
+        )
+        builder.add_step(
+            desc=f"μ = {format_number(mu, 6)}  ;  H({k}) = {format_number(h_res.final_value, 6)}  ;  G({k}) = {format_number(gk, 6)}",
+            latex=(rf"\mu = {format_number(mu, 6)} \quad H({k}) = {format_number(h_res.final_value, 6)}"
+                   rf" \quad G({k}) = {format_number(gk, 6)}"),
+            level_min=2,
+        )
+        builder.add_step(
+            desc=(f"E(X|X>{k}) = ({format_number(mu, 6)} − {format_number(h_res.final_value, 6)})"
+                  f" / {format_number(gk, 6)} = {format_number(val, 6)}"),
+            latex=(rf"E(X|X>{k}) = \frac{{{format_number(mu, 6)} - {format_number(h_res.final_value, 6)}}}"
+                   rf"{{{format_number(gk, 6)}}} = {format_number(val, 6)}"),
+            result=val,
+            level_min=1,
+        )
+        return builder.build(final_value=val, final_latex=rf"E(X|X>{k}) = {format_number(val, 6)}")
+
+    # ------------------------------------------------------------------
     # fractile — default via _dist.ppf (scipy rv_continuous)
     # ------------------------------------------------------------------
 

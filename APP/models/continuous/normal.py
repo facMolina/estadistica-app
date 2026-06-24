@@ -55,39 +55,38 @@ class Normal(ContinuousBase):
 
     # ------------------------------------------------------------------
     def cdf_left(self, x: float):
+        from calculation.normal_table import phi, fmt_z
         mu, sigma = self.mu, self.sigma
         z = (x - mu) / sigma
-        fx = float(self._dist.cdf(x))
+        z_t = fmt_z(z)                 # z redondeado a 2 decimales (lo que se busca en la tabla)
+        fx = phi(z)                    # Φ leído de la tabla de la cátedra
         builder = StepBuilder(f"F({x})")
         builder.add_step(
-            desc="F(x) = P(VA ≤ x) = Φ(Z),  Z = (x − μ) / σ",
+            desc="F(x) = P(X ≤ x) = Φ(Z),  Z = (x − μ) / σ",
             latex=rf"F(x) = \Phi\!\left(\frac{{x - \mu}}{{\sigma}}\right)",
             level_min=1,
         )
         builder.add_step(
-            desc=f"Z = ({x} − {mu}) / {sigma} = {format_number(z, 4)}",
-            latex=rf"Z = \frac{{{x} - {mu}}}{{{sigma}}} = {format_number(z, 4)}",
-            result=z, level_min=1,
+            desc=f"Z = ({format_number(x)} − {format_number(mu)}) / {format_number(sigma)} = {format_number(z_t)}",
+            latex=rf"Z = \frac{{{format_number(x)} - {format_number(mu)}}}{{{format_number(sigma)}}} = {format_number(z_t)}",
+            result=z_t, level_min=1,
         )
         if z >= 0:
             builder.add_step(
-                desc=f"F({x}) = Φ({format_number(z, 4)}) = {format_number(fx, 6)}",
-                latex=rf"F({x}) = \Phi({format_number(z, 4)}) = {format_number(fx, 6)}",
+                desc=f"De tabla Z: F({format_number(x)}) = Φ({format_number(z_t)}) = {format_number(fx)}",
+                latex=rf"F({format_number(x)}) = \Phi({format_number(z_t)}) = {format_number(fx)}",
                 result=fx, level_min=1,
             )
         else:
+            phi_pos = phi(-z)
             builder.add_step(
-                desc=f"Z negativo → Φ(Z) = 1 − Φ(−Z) = 1 − Φ({format_number(-z, 4)})",
-                latex=(rf"F({x}) = \Phi({format_number(z, 4)}) = 1 - \Phi({format_number(-z, 4)})"
-                       rf" = 1 - {format_number(1 - fx, 6)} = {format_number(fx, 6)}"),
-                result=fx, level_min=2,
-            )
-            builder.add_step(
-                desc=f"F({x}) = {format_number(fx, 6)}",
-                latex=rf"F({x}) = {format_number(fx, 6)}",
+                desc=(f"Z negativo → Φ(Z) = 1 − Φ(−Z) = 1 − Φ({format_number(fmt_z(-z))}) "
+                      f"= 1 − {format_number(phi_pos)} = {format_number(fx)}  (tabla Z)"),
+                latex=(rf"F({format_number(x)}) = \Phi({format_number(z_t)}) = 1 - \Phi({format_number(fmt_z(-z))})"
+                       rf" = 1 - {format_number(phi_pos)} = {format_number(fx)}"),
                 result=fx, level_min=1,
             )
-        return builder.build(final_value=fx, final_latex=rf"F({x}) = {format_number(fx, 6)}")
+        return builder.build(final_value=fx, final_latex=rf"F({format_number(x)}) = {format_number(fx)}")
 
     # ------------------------------------------------------------------
     def mean(self):
@@ -143,8 +142,9 @@ class Normal(ContinuousBase):
 
     # ------------------------------------------------------------------
     def fractile(self, alpha: float):
-        x_alpha = float(self._dist.ppf(alpha))
-        z_alpha = (x_alpha - self.mu) / self.sigma
+        from calculation.normal_table import z_critico
+        z_alpha = z_critico(alpha)
+        x_alpha = self.mu + z_alpha * self.sigma
         builder = StepBuilder(f"x({alpha})")
         builder.add_step(
             desc=f"x(α) tal que F(x(α)) = α = {alpha}",
@@ -152,23 +152,23 @@ class Normal(ContinuousBase):
             level_min=1,
         )
         builder.add_step(
-            desc=f"De tabla Normal estándar: Z({alpha}) = {format_number(z_alpha, 4)}",
-            latex=rf"Z({alpha}) = {format_number(z_alpha, 4)}",
-            result=z_alpha, level_min=2,
+            desc=f"De tabla Normal estándar: Z({alpha}) = {format_number(z_alpha)}",
+            latex=rf"Z({alpha}) = {format_number(z_alpha)}",
+            result=z_alpha, level_min=1,
         )
         builder.add_step(
-            desc=f"x({alpha}) = {self.mu} + {format_number(z_alpha, 4)} × {self.sigma} = {format_number(x_alpha, 4)}",
-            latex=rf"x({alpha}) = {format_number(self.mu)} + {format_number(z_alpha, 4)} \cdot {format_number(self.sigma)} = {format_number(x_alpha, 4)}",
+            desc=f"x({alpha}) = {format_number(self.mu)} + {format_number(z_alpha)} × {format_number(self.sigma)} = {format_number(x_alpha)}",
+            latex=rf"x({alpha}) = {format_number(self.mu)} + {format_number(z_alpha)} \cdot {format_number(self.sigma)} = {format_number(x_alpha)}",
             result=x_alpha, level_min=1,
         )
-        return builder.build(final_value=x_alpha, final_latex=rf"x({alpha}) = {format_number(x_alpha, 4)}")
+        return builder.build(final_value=x_alpha, final_latex=rf"x({alpha}) = {format_number(x_alpha)}")
 
     def partial_expectation_left(self, x: float):
-        from scipy.stats import norm
+        from calculation.normal_table import phi, phi_pdf, fmt_z
         mu, sigma = self.mu, self.sigma
         z = (x - mu) / sigma
-        phi_z = float(norm.cdf(z))
-        phi_pdf_z = float(norm.pdf(z))
+        phi_z = phi(z)                 # Φ(Z) de la tabla
+        phi_pdf_z = phi_pdf(fmt_z(z))  # φ(z) (ordenada) con z a 2 decimales
         h = mu * phi_z - sigma * phi_pdf_z
         builder = StepBuilder(f"H({x})")
         builder.add_step(
@@ -177,17 +177,17 @@ class Normal(ContinuousBase):
             level_min=1,
         )
         builder.add_step(
-            desc=f"Z = ({x} − {mu}) / {sigma} = {format_number(z, 4)}",
-            latex=rf"Z = {format_number(z, 4)}", result=z, level_min=2,
+            desc=f"Z = ({format_number(x)} − {format_number(mu)}) / {format_number(sigma)} = {format_number(fmt_z(z))}",
+            latex=rf"Z = {format_number(fmt_z(z))}", result=fmt_z(z), level_min=2,
         )
         builder.add_step(
-            desc=f"H({x}) = {mu}·{format_number(phi_z, 6)} − {sigma}·{format_number(phi_pdf_z, 6)} = {format_number(h, 6)}",
-            latex=(rf"H({x}) = {format_number(mu)} \cdot {format_number(phi_z, 6)}"
-                   rf" - {format_number(sigma)} \cdot {format_number(phi_pdf_z, 6)}"
-                   rf" = {format_number(h, 6)}"),
+            desc=f"H({format_number(x)}) = {format_number(mu)}·{format_number(phi_z)} − {format_number(sigma)}·{format_number(phi_pdf_z)} = {format_number(h)}",
+            latex=(rf"H({format_number(x)}) = {format_number(mu)} \cdot {format_number(phi_z)}"
+                   rf" - {format_number(sigma)} \cdot {format_number(phi_pdf_z)}"
+                   rf" = {format_number(h)}"),
             result=h, level_min=2,
         )
-        return builder.build(final_value=h, final_latex=rf"H({x}) = {format_number(h, 6)}")
+        return builder.build(final_value=h, final_latex=rf"H({format_number(x)}) = {format_number(h)}")
 
     def display_domain(self):
         return self.mu - 4 * self.sigma, self.mu + 4 * self.sigma

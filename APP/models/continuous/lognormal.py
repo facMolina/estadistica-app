@@ -56,8 +56,8 @@ class LogNormal(ContinuousBase):
 
     # ------------------------------------------------------------------
     def cdf_left(self, x: float):
+        from calculation.normal_table import phi, fmt_z
         m, D = self.m, self.D
-        fx = float(self._dist.cdf(x)) if x > 0 else 0.0
         builder = StepBuilder(f"F({x})")
         builder.add_step(
             desc="F(x) = Φ((ln x − m) / D)",
@@ -67,24 +67,36 @@ class LogNormal(ContinuousBase):
         if x > 0:
             ln_x = math.log(x)
             z = (ln_x - m) / D
+            z_t = fmt_z(z)
+            fx = phi(z)
             builder.add_step(
                 desc=f"Y = ln({x}) = {format_number(ln_x, 4)}",
                 latex=rf"Y = \ln({x}) = {format_number(ln_x, 4)}", result=ln_x, level_min=2,
             )
             builder.add_step(
-                desc=f"Z = (Y − m) / D = ({format_number(ln_x, 4)} − {m}) / {D} = {format_number(z, 4)}",
-                latex=rf"Z = \frac{{{format_number(ln_x, 4)} - {m}}}{{{D}}} = {format_number(z, 4)}",
-                result=z, level_min=1,
+                desc=f"Z = (Y − m) / D = ({format_number(ln_x, 4)} − {m}) / {D} = {format_number(z_t)}",
+                latex=rf"Z = \frac{{{format_number(ln_x, 4)} - {m}}}{{{D}}} = {format_number(z_t)}",
+                result=z_t, level_min=1,
             )
-            sign_note = "" if z >= 0 else f"  [Z negativo → Φ(Z) = 1 − Φ({format_number(-z, 4)})]"
-            builder.add_step(
-                desc=f"F({x}) = Φ({format_number(z, 4)}) = {format_number(fx, 6)}{sign_note}",
-                latex=rf"F({x}) = \Phi({format_number(z, 4)}) = {format_number(fx, 6)}",
-                result=fx, level_min=1,
-            )
+            if z >= 0:
+                builder.add_step(
+                    desc=f"De tabla Z: F({x}) = Φ({format_number(z_t)}) = {format_number(fx)}",
+                    latex=rf"F({x}) = \Phi({format_number(z_t)}) = {format_number(fx)}",
+                    result=fx, level_min=1,
+                )
+            else:
+                phi_pos = phi(-z)
+                builder.add_step(
+                    desc=(f"Z negativo → Φ(Z) = 1 − Φ(−Z) = 1 − Φ({format_number(fmt_z(-z))}) "
+                          f"= 1 − {format_number(phi_pos)} = {format_number(fx)}  (tabla Z)"),
+                    latex=(rf"F({x}) = \Phi({format_number(z_t)}) = 1 - \Phi({format_number(fmt_z(-z))})"
+                           rf" = 1 - {format_number(phi_pos)} = {format_number(fx)}"),
+                    result=fx, level_min=1,
+                )
         else:
+            fx = 0.0
             builder.add_step(desc="x ≤ 0: F(x) = 0", latex="F(x) = 0", result=0.0, level_min=1)
-        return builder.build(final_value=fx, final_latex=rf"F({x}) = {format_number(fx, 6)}")
+        return builder.build(final_value=fx, final_latex=rf"F({x}) = {format_number(fx)}")
 
     # ------------------------------------------------------------------
     def mean(self):
@@ -158,9 +170,9 @@ class LogNormal(ContinuousBase):
         return builder.build(final_value=ku, final_latex=rf"Ku = {format_number(ku)}")
 
     def fractile(self, alpha: float):
-        x_alpha = float(self._dist.ppf(alpha))
-        ln_x = math.log(x_alpha) if x_alpha > 0 else float("nan")
-        z = (ln_x - self.m) / self.D
+        from calculation.normal_table import z_critico
+        z_alpha = z_critico(alpha)
+        x_alpha = math.exp(self.m + z_alpha * self.D)
         builder = StepBuilder(f"x({alpha})")
         builder.add_step(
             desc=f"x(α): F(x(α)) = α = {alpha} → ln(x) = m + Z(α)·D",
@@ -168,12 +180,12 @@ class LogNormal(ContinuousBase):
             level_min=1,
         )
         builder.add_step(
-            desc=f"Z({alpha}) = {format_number(z, 4)}  (tabla Normal estándar)",
-            latex=rf"Z({alpha}) = {format_number(z, 4)}", result=z, level_min=2,
+            desc=f"De tabla Normal estándar: Z({alpha}) = {format_number(z_alpha)}",
+            latex=rf"Z({alpha}) = {format_number(z_alpha)}", result=z_alpha, level_min=2,
         )
         builder.add_step(
-            desc=f"x({alpha}) = e^({self.m} + {format_number(z, 4)}·{self.D}) = {format_number(x_alpha, 4)}",
-            latex=rf"x({alpha}) = e^{{{format_number(self.m)} + {format_number(z, 4)} \cdot {format_number(self.D)}}} = {format_number(x_alpha, 4)}",
+            desc=f"x({alpha}) = e^({format_number(self.m)} + {format_number(z_alpha)}·{format_number(self.D)}) = {format_number(x_alpha, 4)}",
+            latex=rf"x({alpha}) = e^{{{format_number(self.m)} + {format_number(z_alpha)} \cdot {format_number(self.D)}}} = {format_number(x_alpha, 4)}",
             result=x_alpha, level_min=1,
         )
         return builder.build(final_value=x_alpha, final_latex=rf"x({alpha}) = {format_number(x_alpha, 4)}")

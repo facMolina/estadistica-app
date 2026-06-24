@@ -96,12 +96,49 @@ def test_llm_fallback_on_ambiguous_input():
     assert r.get("_source") in ("regex", "llm"), r
 
 
+def test_llm_fallback_continuous_models():
+    print("\n[5] Fallback LLM para modelos continuos (WS5 — el regex no los detecta)")
+    if not _ollama_up():
+        _skip("Ollama no está corriendo")
+        return
+    p = NLParser()
+
+    r = p.parse(
+        "El tiempo de vida de una lampara se distribuye Normal con media 600 "
+        "horas y desvio 30 horas. Hallar P(X>620)."
+    )
+    print(f"  Normal: status={r.get('status')} model={r.get('model')} "
+          f"qp={r.get('query_params')} source={r.get('_source')}")
+    if r.get("_source") == "llm":
+        assert r["status"] == "complete", r
+        assert r["model"] == "Normal", r
+        # Clave "x" (no "r") para el valor puntual en modelos continuos.
+        assert "x" in r.get("query_params", {}), r
+    else:
+        _skip("LLM no devolvió resultado utilizable para Normal")
+
+    r2 = p.parse(
+        "La velocidad maxima del viento sigue una Gumbel del maximo con "
+        "media 50 y varianza 100. Hallar P(X>70)."
+    )
+    print(f"  GumbelMax: status={r2.get('status')} model={r2.get('model')} "
+          f"source={r2.get('_source')}")
+    if r2.get("_source") == "llm" and r2.get("status") == "complete":
+        # Bug real corregido 2026-06-23: el LLM devuelve "GumbelMax" (sin
+        # espacio) y normalize_model_name debe mapearlo a "Gumbel Max"
+        # (nombre canónico de IMPLEMENTED_MODELS), no rechazarlo.
+        assert r2["model"] == "Gumbel Max", r2
+    else:
+        _skip("LLM no devolvió resultado utilizable para Gumbel Max")
+
+
 if __name__ == "__main__":
     tests = [
         test_regex_still_wins_for_catedra_notation,
         test_llm_output_validation_rejects_bad_shape,
         test_llm_does_not_degrade_regex_result,
         test_llm_fallback_on_ambiguous_input,
+        test_llm_fallback_continuous_models,
     ]
     passed = 0
     failed: list[tuple[str, str]] = []

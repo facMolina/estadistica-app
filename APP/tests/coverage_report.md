@@ -1,8 +1,8 @@
 # Coverage report — parser contra guía PDF
 
 **Total:** 180 ejercicios
-- complete: 133
-- follow_up: 47
+- complete: 132
+- follow_up: 48
 - error: 0
 
 ## Matriz por tema
@@ -10,27 +10,36 @@
 | Tema | Total | OK | Follow-up | Error |
 |------|-------|----|-----------|-------|
 | I | 5 | 5 | 0 | 0 |
-| II | 31 | 17 | 14 | 0 |
+| II | 31 | 16 | 15 | 0 |
 | III | 33 | 26 | 7 | 0 |
-| IV | 27 | 18 | 9 | 0 |
-| V | 27 | 19 | 8 | 0 |
+| IV | 27 | 22 | 5 | 0 |
+| V | 27 | 16 | 11 | 0 |
 | VI | 40 | 33 | 7 | 0 |
-| VII | 17 | 15 | 2 | 0 |
+| VII | 17 | 14 | 3 | 0 |
 
 ## Ejercicios con fallas (follow_up + error)
 
 ### Tema II — Ejercicio 3  (follow_up)
 
-**Motivo:** Falta información sobre la probabilidad de tener cabello rubio o no azules o ambas cosas
+**Motivo:** Falta información sobre la distribución de ojos no azules y cabello rubio
 **Resp. esperada:** 12%.
 
 ```
 En una universidad se obtuvo la siguiente información: El 32% de las chicas tienen cabello rubio, ojos azules o ambas cosas y el 20% tienen ojos azules. ¿Qué porcentaje de chicas tienen cabello rubio y ojos no azules?
 ```
 
+### Tema II — Ejercicio 5  (follow_up)
+
+**Motivo:** Falta definir si los eventos son independientes o no para calcular las probabilidades condicionales y la unión
+**Resp. esperada:** a) 50%; b) 20%; c) 30%.
+
+```
+En un colegio secundario, el 25% de los estudiantes fue aplazado en Matemática, el 10% en Química y el 5% fue aplazado en ambas materias. Calcular: a) De los aplazados en Química, ¿qué porcentaje aplazó Matemática?; b) de los aplazados en Matemática, ¿qué porcentaje aplazó Química?; c) ¿qué porcentaje aplazó Matemática o Química?
+```
+
 ### Tema II — Ejercicio 6  (follow_up)
 
-**Motivo:** Falta información sobre la intersección entre los bancos A y B para resolver a), b) y c)
+**Motivo:** Falta información sobre la relación entre los grupos (independencia o intersección)
 **Resp. esperada:** a) 6%; b) 27,27%; c) 69,81%.
 
 ```
@@ -44,15 +53,6 @@ En una localidad del interior del país hay dos bancos A y B. El 22% de los habi
 
 ```
 En una ciudad se publican dos diarios A y B. El 42% de los habitantes lee A, el 25% lee B y el 5% lee ambos. a) ¿Cuál es el porcentaje de personas que lee diarios?; b) de los habitantes que leen diarios, ¿qué porcentaje lee B?; c) si se eligen al azar 3 personas, ¿cuál es la probabilidad de que todas lean diarios?; d) ¿cuál es el porcentaje de personas que sólo lee A?
-```
-
-### Tema II — Ejercicio 8  (follow_up)
-
-**Motivo:** No pude identificar el modelo estadístico. ¿Cuál es? (Ej: Binomial, Poisson, etc.)
-**Resp. esperada:** a) 1/8 = 0,125; b) 5/11 = 0,4546.
-
-```
-Una caja C1 contiene 3 bolillas negras y 5 blancas; otra caja C2 tiene 1 negra y 9 blancas. Se toma la caja C1, se extrae una bolilla y, sin mirarla, se introduce en C2; luego se extrae una bolilla al azar de C2. a) ¿Cuál es la probabilidad de que esta última sea negra?; b) si esta es negra, ¿cuál es la probabilidad de haber pasado una blanca de C1 a C2?
 ```
 
 ### Tema II — Ejercicio 11  (follow_up)
@@ -75,25 +75,16 @@ Una caja tiene 5 bolillas blancas y 2 rojas; otra tiene 4 blancas y 5 rojas. Se 
 
 ### Tema II — Ejercicio 13  (follow_up)
 
-**Motivo:** No pude identificar el modelo estadístico. ¿Cuál es? (Ej: Binomial, Poisson, etc.)
+**Motivo:** Falta especificar si la elección de la caja es equiprobable o si hay más información sobre las probabilidades iniciales
 **Resp. esperada:** a) 169/720 = 0,2347; b) 45/169 = 0,2663; c) 225/1859 = 0,121; d) 1413/1859 = 0,7601.
 
 ```
 Una caja C1 contiene 3 bolillas negras y 5 blancas; otra caja C2 tiene 1 negra y 9 blancas. Se elige una caja al azar, se extrae una bolilla y, sin mirarla, se introduce en la otra caja; luego de esta otra caja se extrae una bolilla al azar. a) ¿Cuál es la probabilidad de que esta bolilla sea negra?; b) si es negra, ¿cuál es la probabilidad de que la primera caja haya sido C1?; c) si es negra, ¿cuál es la probabilidad de que la primera caja haya sido C1 y se haya extraído de ella una bolilla blanca?; d) si es negra, ¿cuál es la probabilidad de que la primera extracción haya sido una bolilla bl
 ```
 
-### Tema II — Ejercicio 14  (follow_up)
-
-**Motivo:** No pude identificar el modelo estadístico. ¿Cuál es? (Ej: Binomial, Poisson, etc.)
-**Resp. esperada:** 13/30 = 0,4333.
-
-```
-Una caja tiene 4 bolillas blancas y 6 rojas. Se saca una bolilla, se mira su color y se la vuelve a la caja, agregando, además, dos bolillas del otro color. Luego se extrae una bolilla. Calcular la probabilidad de que sea blanca.
-```
-
 ### Tema II — Ejercicio 15  (follow_up)
 
-**Motivo:** No pude identificar el modelo estadístico. ¿Cuál es? (Ej: Binomial, Poisson, etc.)
+**Motivo:** Falta información sobre la distribución de clientes entre los vendedores y la probabilidad de que ambos faltan
 **Resp. esperada:** a) 70,38%; b) 0,5509; c) 0,1087.
 
 ```
@@ -109,9 +100,18 @@ En un bazar hay dos vendedores, “A” y “B”. De los clientes atendidos por
 A y B se baten a duelo. En cada disparo, la probabilidad de acierto para A es 0,2 y para B 0,3. Dispara primero A y si no acierta, se arroja una moneda; si sale cara dispara de nuevo A, de lo contrario dispara B. Si después de esto viven aún A y B, tiene B un último disparo. Calcular las probabilidades de que gane A, gane B y ambos salgan ilesos.
 ```
 
+### Tema II — Ejercicio 22  (follow_up)
+
+**Motivo:** No pude identificar el modelo estadístico. ¿Cuál es? (Ej: Binomial, Poisson, etc.)
+**Resp. esperada:** a) no; b) 4/15 = 0,2667; c) 2/5 = 0,4.
+
+```
+Para los siguientes datos:   A P 0,4 B   ;     P A B P A B 0,9     . a) indicar si A y B son o no independientes, justificando la respuesta; b)   P A B  ; c)   B P A .
+```
+
 ### Tema II — Ejercicio 24  (follow_up)
 
-**Motivo:** Falta información para resolver las preguntas específicas
+**Motivo:** Falta información sobre la intersección entre tener cuenta corriente y antigüedad
 **Resp. esperada:** a) 78%; b) 40%; c) 45%.
 
 ```
@@ -129,7 +129,7 @@ Una caja C1 contiene 3 bolillas blancas y 7 rojas. Otra caja C2 tiene 12 blancas
 
 ### Tema II — Ejercicio 27  (follow_up)
 
-**Motivo:** Falta información para determinar si las pruebas son independientes y calcular el porcentaje de fallas en B dado que no fallaron en A
+**Motivo:** Falta información sobre la relación entre las pruebas A y B
 **Resp. esperada:** a) no; b) 5,26%.
 
 ```
@@ -138,16 +138,25 @@ El control de calidad para cierto tipo de motor incluye dos pruebas: A (ensayo d
 
 ### Tema II — Ejercicio 30  (follow_up)
 
-**Motivo:** No pude identificar el modelo estadístico. ¿Cuál es? (Ej: Binomial, Poisson, etc.)
+**Motivo:** Falta información sobre la probabilidad de contraer la enfermedad si la vacuna no inmuniza y si la persona no es vacunada
 **Resp. esperada:** a) 33.984; b) 0,1356.
 
 ```
 Una ciudad de 1 millón de habitantes se considera dividida en dos zonas: La 1, con 700000 y la 2 con 300000. Ante el peligro de una epidemia, se decide vacunar al 80% de la población; en la zona 1 se utiliza una vacuna con un 92% de efectividad y en la zona 2, una que tiene un 84% de efectividad; si la vacuna no inmuniza a la persona, hay una probabilidad 0,12 de contraer la enfermedad, lo mismo que si la persona no es vacunada. a) ¿Cuántas personas enfermarán si sobreviene la epidemia?; b) si una persona se enferma, ¿cuál es la probabilidad de que haya sido vacunada en la zona 2?
 ```
 
+### Tema II — Ejercicio 31  (follow_up)
+
+**Motivo:** Faltan parámetros para modelar el problema de forma clara
+**Resp. esperada:** a) 0,84; b) 0,942; c) 0,04.
+
+```
+Se han enviado dos vendedores A y B a dos distintos clientes para ofrecer un determinado producto y se sabe que: P(A no tenga éxito) = 0,2; P(B sólo no tenga éxito) = 0,15 y P(A y B no tengan éxito) = 0,16. Calcular: a) P(uno al menos tenga éxito); b) P(A tenga éxito / B tuvo éxito); c) P(A sólo no tenga éxito).
+```
+
 ### Tema III — Ejercicio 2  (follow_up)
 
-**Motivo:** ¿Cuántos ensayos se realizan (valor de n)?
+**Motivo:** Falta información sobre la distribución del dado y la composición exacta de las cajas
 **Resp. esperada:** Una caja: P(1) = 1/90 = 0,0111; P(2) = 8/90 = 4/45 = 0,0889; P(3) = P(4) = P(5) = P(6) = 15/90 = 1/6 = 0,1667;   P(7) = 14/90 = 7/45 = 0,1556; P(8) = 7/90 = 0,0778.  = 4,9; 2 = 3,29.            Otra
 
 ```
@@ -165,34 +174,34 @@ En una estación de servicio, la distribución de clientes que llegan cada 15' t
 
 ### Tema III — Ejercicio 18  (follow_up)
 
-**Motivo:** ¿Cuál es la probabilidad de éxito (valor de p, entre 0 y 1)?
+**Motivo:** Falta especificar si la fracción defectuosa es p o si se necesita calcular p a partir de datos
 **Resp. esperada:**     15 14 1-p 1 15p 1 p        .
 
 ```
 El control de recepción de una pieza que se recibe en grandes partidas consiste en seleccionar una muestra de 15 unidades y rechazar la partida si se encuentran 2 o más defectuosas; si se encuentra ninguna defectuosa, la partida se acepta, pero si se encuentra exactamente 1 se toma una nueva muestra de 15 unidades y, en caso de encontrar aquí alguna defectuosa, rechazar definitivamente la partida, de lo contrario aceptarla. Obtener la expresión para calcular la probabilidad de aceptación de una partida en función de la fracción “p” defectuosa de la misma.
 ```
 
-### Tema III — Ejercicio 19  (follow_up)
+### Tema III — Ejercicio 20  (follow_up)
 
-**Motivo:** No pude identificar el modelo estadístico. ¿Cuál es? (Ej: Binomial, Poisson, etc.)
-**Resp. esperada:** 0,4355.
-
-```
-En una empresa se adquirieron piezas de repuesto y se colocaron en dos cajas iguales que tenían 65 unidades cada una, pero en una había 8 de segunda calidad y en la otra 5 de segunda calidad. Por una confusión, las cajas no quedaron identificadas. Al tomar una muestra de 5 piezas de una de las cajas se encontró 1 pieza de segunda calidad. Se desea saber cuál es la probabilidad de haber extraído la muestra de la segunda caja.
-```
-
-### Tema III — Ejercicio 21  (follow_up)
-
-**Motivo:** ¿Cuántos éxitos se buscan (valor de r)?
-**Resp. esperada:** a) A = 33,88% y B = 4,36%; b) 0,114.
+**Motivo:** ¿Cuántos ensayos se realizan (valor de n)?
+**Resp. esperada:** 0,468.
 
 ```
-En una empresa se reciben periódicamente piezas de repuesto, las cuales se suministran en cajas iguales que contienen 65 unidades cada una. El control de recepción consiste en tomar una muestra de 5 unidades al azar de cada caja y rechazarla si se encuentra alguna pieza de segunda calidad. Este control de recepción lo pueden realizar dos inspectores: “A” y “B”; “A” aplica el procedimiento correctamente, pero “B” no, ocasionando grandes perjuicios a la empresa; éste va sacando piezas de la caja hasta encontrar la segunda pieza de segunda calidad, aceptando la caja si necesita sacar una muestra 
+Hay dos máquinas que producen un mismo tipo de pieza. La máquina A trabaja con un 5% de unidades defectuosas y la B con un 8% de unidades defectuosas. Un inspector de calidad va primero a una máquina y la decimosexta pieza revisada es la primera defectuosa; luego se dirige a la otra máquina y la vigésima pieza revisada es la primera defectuosa. Calcular la probabilidad de que la primera máquina haya sido la A.
+```
+
+### Tema III — Ejercicio 26  (follow_up)
+
+**Motivo:** Falta especificar si se busca el valor de n o c, o ambos
+**Resp. esperada:** n = 301 unidades y c = 17 defectuosas.
+
+```
+Se desea diseñar un sistema de muestreo periódico para el control de la producción de una pieza seriada cuyo proceso productivo trabaja con un porcentaje de unidades defectuosas nominal del 4%. El sistema consistirá en tomar muestras de “n” unidades y revisar el proceso toda vez que se encuentren “c” o más unidades defectuosas en la muestra. Se establece en 0,10 la probabilidad de detener el proceso innecesariamente (es decir, encontrar “c” o más unidades defectuosas cuando el proceso trabaja al 4% nominal) y en 0,95 la probabilidad de detenerlo cuando trabaja al 8% de unidades defectuosas. Ca
 ```
 
 ### Tema III — Ejercicio 30  (follow_up)
 
-**Motivo:** Falta la distribución para calcular el costo esperado y la optimización
+**Motivo:** Falta información sobre el costo esperado y la optimización del costo
 **Resp. esperada:** a) U$s 2.823,63; b) hay que repetir el cálculo para distintos valores de n, el valor óptimo se obtiene con n = 9    U$s 2.768,77. Se puede usar el SOLVER del Excel.
 
 ```
@@ -217,22 +226,22 @@ Con el fin de obtener 12 piezas mecanizadas sin deformaciones, se funden 18 piez
 Se supone que, en condiciones normalizadas de funcionamiento, el rendimiento de un motor de combustión interna varía de motor a motor según la siguiente función de densidad “BETA”:    0,875 f x 0,125 1 x      para 0 x 1   . Se desea calcular: a) El rendimiento superado por el 90% de los motores; b) la probabilidad de que, en 3 motores elegidos al azar, el menos rendidor tenga un rendimiento superior al 80%.
 ```
 
-### Tema IV — Ejercicio 9  (follow_up)
+### Tema IV — Ejercicio 8  (follow_up)
 
-**Motivo:** No pude identificar el modelo estadístico. ¿Cuál es? (Ej: Binomial, Poisson, etc.)
-**Resp. esperada:** a) 0,2967; b) 0,5772; c) 0,6901.
-
-```
-Dos proveedores A y B suministran lámparas cuya duración es variable con función de distribución de WEIBULL, con ω = 3; donde β se expresa en horas y vale 80 para el proveedor A y 95 para el B. Además, A suministra el 70% y B el resto y están mezcladas en el depósito en dichas proporciones. a) Si se elige una al azar, ¿cuál es la probabilidad de que dure más de 90 horas?; b) se eligió una al azar y hace 88 horas que funciona, ¿cuál es la probabilidad de que pertenezca a “A”?; c) la lámpara elegida duró 89,4 horas exactamente, ¿cuál es la probabilidad de que pertenezca a “A”? La pregunta c) es 
-```
-
-### Tema IV — Ejercicio 14  (follow_up)
-
-**Motivo:** No pude identificar el modelo estadístico. ¿Cuál es? (Ej: Binomial, Poisson, etc.)
-**Resp. esperada:** 0,2526.
+**Motivo:** Falta información sobre la distribución exacta del calibre incorrecto y la probabilidad a priori de usar cada calibre
+**Resp. esperada:** 0,5338.
 
 ```
-La duración de un cojinete a bolilla presenta la función de WEIBULL con β = 10 millones de revoluciones y con ω = 2, para x en millones de revoluciones. Calcular la probabilidad de que, en un conjunto de 3 cojinetes elegidos al azar, el más duradero dure menos de 10 millones de revoluciones.
+Una máquina produce piezas cilíndricas de acero cuyo diámetro es una variable aleatoria que supondremos (aunque no es verdad) distribuida uniformemente entre 10 y 11mm. La tolerancia para estas piezas es   10,05 x 10,90    y el control se efectúa con un calibre “pasa - no pasa”. Hay dos calibres para dicho control; uno de ellos tiene los topes correctos pero el otro tiene el tope inferior incorrecto en 10,1mm. Se revisaron 15 piezas con uno de los calibres y se encontraron 12 buenas. ¿Cuál es la probabilidad de que se haya usado el calibre equivocado en esa inspección?
+```
+
+### Tema IV — Ejercicio 10  (follow_up)
+
+**Motivo:** Falta p para calcular la media del modelo Pascal
+**Resp. esperada:** a) 31,21 lámparas en promedio; b) 27,56% de “A” y 77,44% de “B”.
+
+```
+Si se toma como referencia el problema anterior, responder a los siguientes interrogantes: a) Si se eligen lámparas al azar hasta encontrar 10 con duraciones superiores a 88 horas, ¿cuál es el número esperado de lámparas a elegir?; b) si se desconociera las proporciones de A y de B que hay en el depósito y, sobre 100 lámparas se encuentran 40 que duran más de 88 horas, ¿cuál sería la estimación de dichas proporciones?
 ```
 
 ### Tema IV — Ejercicio 17  (follow_up)
@@ -244,108 +253,99 @@ La duración de un cojinete a bolilla presenta la función de WEIBULL con β = 1
 La duración de los cartuchos de tóner de una impresora láser es variable por distintas causas, sobre todo por los tipos de calidades de impresión, respondiendo a una distribución de WEIBULL. Para el cartucho original, la duración tiene un β = 5,8 (en miles de páginas), donde la variable “x” se expresa en miles de páginas, en tanto que, para el cartucho remanufacturado, la duración tiene un β = 5,2 miles de páginas; para ambos tipos de cartuchos el ω = 3. En una oficina, el 20% de los cartuchos son originales y el resto son remanufacturados. a) ¿Cuál es la probabilidad de que un cartucho, elegi
 ```
 
-### Tema IV — Ejercicio 18  (follow_up)
-
-**Motivo:** ¿Cuántos ensayos se realizan (valor de n)?
-**Resp. esperada:** 0,2736.
-
-```
-En trabajos de control de producción, se ha podido comprobar que el alargamiento hasta la rotura del hilo de coser, expresado en porcentaje, responde a la distribución GUMBEL del Máximo, siendo θ y β los parámetros. El  parámetro θ es el modo o moda de la variable, es decir el valor que maximiza la función de densidad. Estos parámetros toman valores distintos según el tipo de hilo. Para un tipo de hilo dado se tiene una media del 14% y se ha podido establecer que con probabilidad 0,1 se supera el 16%. Calcular con qué probabilidad el alargamiento es inferior al 13%.
-```
-
-### Tema IV — Ejercicio 19  (follow_up)
-
-**Motivo:** No pude identificar el modelo estadístico. ¿Cuál es? (Ej: Binomial, Poisson, etc.)
-**Resp. esperada:** 77,2%.
-
-```
-La variable “vida de seres vivientes de una misma especie” ha sido objeto de numerosos estudios, sobre todo en la especie humana. Los objetivos de tales estudios, son de diversa índole, pero en relación con las Ciencias de la Administración, resultan de utilidad para el cálculo de las primas de seguros de vida. Hasta no hace mucho tiempo se seguía utilizando la distribución NORMAL, despreciándose la clara asimetría negativa de dicha variable; esta aproximación resulta algunas veces razonable cuando se trata de vida o de duración de objetos inanimados o de algunas especies animales. Para los hu
-```
-
-### Tema IV — Ejercicio 22  (follow_up)
-
-**Motivo:** No pude identificar el modelo estadístico. ¿Cuál es? (Ej: Binomial, Poisson, etc.)
-**Resp. esperada:** a) 0,5639; b) 0,9418.
-
-```
-La resistencia a la rotura de un cierto tipo de piezas se mide en toneladas y se rige por un modelo que explica este tipo de variables, descubierto por WALLODI WEIBULL. Hay 2 proveedores que suministran este tipo de piezas, el parámetro de forma para los 2 proveedores es el mismo y vale ω = 4, en cambio el parámetro de escala β es diferente: para el proveedor A, β tiene un valor de 2,5 Tn y para el proveedor B,  tiene un valor de 2 Tn. En el depósito hay un 30% de cajas del proveedor A y el resto del proveedor B. Las cajas, por error de una mala administración, no quedaron identificadas. Se e
-```
-
-### Tema IV — Ejercicio 23  (follow_up)
-
-**Motivo:** No pude identificar el modelo estadístico. ¿Cuál es? (Ej: Binomial, Poisson, etc.)
-**Resp. esperada:** 0,9929.    Uso de las Expectativas parciales
-
-```
-En un circuito entran en serie dos elementos similares, que se obtienen del almacén al armarlo. En el almacén hay 80% de estos elementos de calidad X (cuya vida media es de 2.000 horas) y hay 20% de calidad Y (cuya vida media es de 1.000 horas). Sabiendo que el circuito hace 2.000 horas que funciona sin fallas, calcular la probabilidad de que contenga al menos un elemento de calidad X.
-```
-
 ### Tema IV — Ejercicio 25  (follow_up)
 
-**Motivo:** Falta distribución de salarios originales o datos suficientes para calcular S = X + I(X < μ·0.27, X > μ·1.16 - 0.84)
+**Motivo:** Falta información sobre la distribución de salarios
 **Resp. esperada:** a) 244,72 U$s; b) 23,52%; c) 214,81 U$s.
 
 ```
 Respecto del problema anterior, la empresa decide otorgar un aumento del 27% a los que ganan menos que la media y del 16% a los que ganan más. Calcular: a) El salario promedio después del aumento; b) el aumento porcentual promedio otorgado; c) el salario promedio, después del aumento, para los empleados que antes del aumento ganaban menos que la media sin aumento.
 ```
 
-### Tema V — Ejercicio 1  (follow_up)
-
-**Motivo:** No pude identificar el modelo estadístico. ¿Cuál es? (Ej: Binomial, Poisson, etc.)
-**Resp. esperada:** a) 94,52%; b) 78,81%; c) 73,33%; d) 24.112,14 lt.; e) 16.796,12 lt.; f) 52,9%; g) 77,58%; h) 93,04%; i) 0,4596.
-
-```
-En una planta industrial el consumo mensual de combustible es una variable aleatoria distribuida Normalmente con media 20.000 litros y desvío estándar 2.500 litros. Calcular: a) ¿Qué   porcentaje de los meses se consume menos de 24.000 litros?; b) ¿Qué   porcentaje de los meses se consume más de 18.000?; c) ¿Qué   porcentaje de los meses se consume entre 18.000 y 24.000?; d) ¿qué  capacidad debe tener un tanque para satisfacer el consumo mensual con 95% de confiabilidad?; e) ¿cuál es el consumo superado en el 90% de los meses?; f) de los meses que se consume menos de 24.000 litros, ¿qué porcen
-```
-
 ### Tema V — Ejercicio 3  (follow_up)
 
-**Motivo:** Falta información sobre la distribución del peso de los novillos para resolver el problema
+**Motivo:** Falta media y desviación estándar para calcular el modelo
 **Resp. esperada:** a) 492 Kg; b) 0,6140.
 
 ```
 En un establecimiento agropecuario, el 10% de los novillos que salen a venta pesan más de 500 Kg y el 7% pesan menos de 410 Kg. Calcular: a) el peso superado por el 15% de los novillos; b) la probabilidad de que en una jaula de 25 novillos haya alguno con peso inferior a 400 Kg.
 ```
 
-### Tema V — Ejercicio 8  (follow_up)
+### Tema V — Ejercicio 4  (follow_up)
 
-**Motivo:** Faltan datos para calcular mediana, modo y porcentajes de empleados
-**Resp. esperada:** a) Me = U$s 261,77 y Mo = U$s 175,17; b) 37,57%; c) 49,02%   d) (Con  = U$s 352 y  = U$s 247,5): Me = U$s 287,95 y Mo = U$s 192,69; 37,57%; 49,02%.
+**Motivo:** Falta información sobre la distribución de las tablas en la partida y la probabilidad a priori de que provengan de A o B
+**Resp. esperada:** 0,5251.
 
 ```
-Los salarios de los empleados de una empresa tienen una media de U$s 320 y desvío de U$s 225. Calcular: a) La mediana y el modo; b) El porcentaje de empleados con salarios superiores a la media; c) De los que superan el modo, ¿qué porcentaje gana menos que la media?; d) ídem a), b) y c) si se aplica un aumento del 10% a todos.
+Una carpintería recibe tablas de dos aserraderos A y B. En el primero, la longitud de las mismas tiene distribución Normal con media 3,8 m y desvío estándar 0,3 m; en el segundo, la distribución también es Normal, pero con parámetros 3,9 y 0,35 m respectivamente. Hay una partida en depósito de la cual, por una confusión, se desconoce su origen; en 10 tablas de la misma se encontraron 7 con longitud superior a 3,7 m; ¿cuál es con esta información la probabilidad de que el origen sea B?
 ```
 
 ### Tema V — Ejercicio 9  (follow_up)
 
-**Motivo:** No pude identificar el modelo estadístico. ¿Cuál es? (Ej: Binomial, Poisson, etc.)
+**Motivo:** Falta información sobre la distribución de los saldos (normal, etc.) y si se asume independencia entre cuentas corrientes y de ahorro
 **Resp. esperada:** a) 58,14%; b) 55,24%.
 
 ```
 En un banco, los saldos de cuentas corrientes tienen una media de U$s 320 y un desvío de U$s 425; en tanto que los saldos de cuentas de ahorro tienen una media de U$s 125 y un desvío de U$s 97. Hay 3.500 cuentas corrientes y 1.660 cuentas de ahorro. Calcular: a) ¿Qué porcentaje del total de las cuentas presenta un saldo inferior a U$s 180?; b) De las cuentas con saldos inferiores a U$s 180, ¿qué porcentaje son cuentas corrientes?
 ```
 
+### Tema V — Ejercicio 13  (follow_up)
+
+**Motivo:** No pude identificar el modelo estadístico. ¿Cuál es? (Ej: Binomial, Poisson, etc.)
+**Resp. esperada:** 0,1279.    Uso de las Expectativas parciales
+
+```
+Los montos de depósitos a plazo fijo de una financiera tienen distribución Log-normal con una media de 20.000 U$s y un desvío de 17.500 U$s. Si se eligen al azar 100 depósitos a plazo fijo, ¿cuál es la probabilidad de hallar más de 55 depósitos con montos inferiores a U$s 15.000?
+```
+
+### Tema V — Ejercicio 14  (follow_up)
+
+**Motivo:** Falta información sobre la distribución de los días de adelanto y atraso para calcular el beneficio esperado
+**Resp. esperada:** a) U$s 190.782,50; b) 225,4 días promedio en total, o sea 15,4 días promedio a partir de los 210 días transcurridos;   c) 0,2743.
+
+```
+Una empresa constructora ha ganado honestamente la licitación estatal para una obra civil por un monto de U$s 600.000 y un plazo de entrega de 210 días, con una cláusula que penaliza en U$s 2.500 cada día de atraso, y un premio de U$s 1.500 por cada día de adelanto. El costo de la obra para la empresa se ha calculado en U$s 330.000 fijos más 500 U$s/día. Además, mediante la teoría de redes, se ha determinado que la duración de los trabajos se distribuye normalmente con una media de 195 días y un desvío estándar de 25 días. a) Calcular el beneficio esperado; b) Si han transcurrido los 210 días 
+```
+
+### Tema V — Ejercicio 16  (follow_up)
+
+**Motivo:** Falta información sobre cómo se relaciona la demanda con la capacidad del tren para calcular los puntos b, c y d
+**Resp. esperada:** a) 538,67 pasajes en promedio; b) 517,95 pasajes; c) 600 pasajes; d) 7.776,96 U$s; e) Hay que buscar la cantidad de vagones para el cual el beneficio esperado es máximo (el resultado es 10 vagones).
+
+```
+Una línea de ferrocarril estudia la forma de optimizar el servicio de transporte de pasajeros en viajes de tipo “rápido”. Cada vagón tiene 60 asientos y está prohibido que viajen pasajeros de pie. El tren parte actualmente con 10 vagones (estén o no ocupados) y puede, por lo tanto, llevar como máximo 600 pasajeros. El costo de movimiento del tren se compone de: 1) 650 U$s/vagón; 2) 1.600 U$s por la locomotora y el furgón; 3) 10 U$s/pasajero. Se evalúa además en 25 U$s el lucro cesante por cada pasajero que no consigue pasaje por haberse completado el tren. El precio de cada pasaje es de 40 U$s
+```
+
 ### Tema V — Ejercicio 17  (follow_up)
 
-**Motivo:** Faltan longitudes representativas para cada categoría
+**Motivo:** Falta información sobre la distribución de longitudes dentro de cada categoría para calcular la media
 **Resp. esperada:** 1,36 m; 1,77 m; 2,19 m, respectivamente.
 
 ```
 En una planta se reciben tablas de longitud variable que se clasifican en: Categoría A, las menores de 1,5 metros; Categoría B, las que tienen longitudes comprendidas entre 1,5 y 2 metros; y Categoría C, las mayores de 2 metros. Se sabe que las proporciones son 12%, 58% y 30%, respectivamente. Determinar la longitud media de cada categoría.
 ```
 
-### Tema V — Ejercicio 20  (follow_up)
+### Tema V — Ejercicio 23  (follow_up)
 
-**Motivo:** ¿Cuántos ensayos se realizan (valor de n)?
-**Resp. esperada:** 5,74 U$s.
+**Motivo:** Falta información sobre distribución de los costos y variables para calcular el costo esperado y probabilidades adicionales
+**Resp. esperada:** a) 16.015,65 U$s; b) 41,97%; c) 0,5530.
 
 ```
-En un bar de una facultad pública la consumición se cobra por medio de un ticket que es presentado por el consumidor al salir del bar. Si pierde el ticket, debe pagar 20 U$s en concepto de importe por consumición. Dados los diferentes estratos sociales que concurren a esa Facultad, los consumos presentan una fuerte dispersión, con una media de 7 U$s y un desvío de 12 U$s. Aunque no es muy frecuente, hay personas cuyo consumo supera los 20 U$s y, en ese caso, aplicando nuestros conocidos conceptos de viveza criolla, “pierden” el ticket y pagan sólo 20 U$s. Calcular el importe promedio pagado po
+La fabricación de un producto químico se lleva a cabo en un reactor con una capacidad óptima de 5.000 kg de materia prima o en otro más pequeño de 1.600 kg. La cantidad de materia prima, que se recibe de otra planta de la misma empresa, es variable día a día con distribución Normal de media 5.200 kg y desvío estándar de 400 kg. Cuando se reciben menos de 5.300 kg, se procesan en el reactor grande (aun cuando por encima de 5.000 kg deben tomarse algunas precauciones especiales que agregan un costo fijo adicional). Por encima de 5.300 kg resulta imposible procesar el excedente en el reactor gran
+```
+
+### Tema V — Ejercicio 24  (follow_up)
+
+**Motivo:** Falta información sobre la distribución log-normal para calcular la comisión y la venta media condicional
+**Resp. esperada:** a) U$s 245,30; b) U$s 702,29.
+
+```
+El monto de ventas mensuales realizadas por cada corredor de una empresa sigue un comportamiento Log- Normal con una media de 1.200 U$S y un desvío estándar de 900 U$s. Todos los corredores cobran un básico de 100 U$s más una comisión del 10% cuando sus ventas mensuales no superan los 800 U$s y una comisión del 15% sobre el excedente. a) ¿Cuánto cobra en promedio mensualmente cada corredor?; b) ¿cuál es la venta media para los corredores que venden menos que la media?
 ```
 
 ### Tema V — Ejercicio 26  (follow_up)
 
-**Motivo:** No pude identificar el modelo estadístico. ¿Cuál es? (Ej: Binomial, Poisson, etc.)
+**Motivo:** Falta distribución de saldos para calcular el costo esperado
 **Resp. esperada:** U$s 35,15.
 
 ```
@@ -354,20 +354,11 @@ En un banco a las cuentas pertenecientes a actividades comerciales se les cobra 
 
 ### Tema V — Ejercicio 27  (follow_up)
 
-**Motivo:** Faltan datos para resolver el problema.
+**Motivo:** Falta información sobre la distribución de los consumos para calcular la mediana
 **Resp. esperada:** a) Si:       x x x x x 200 M 14 M 14 x 200 M 14 0,045 x 200 M 5 0,045 x                                    M LN LN LN E M 14 F 200 5 G 200 0,045 J 200   
 
 ```
 En una central telefónica se tiene, para la categoría familias, un consumo promedio bimestral por abonado de 850 pulsos, con un desvío estándar de 1.025 pulsos. Hay 200 pulsos libres, que tienen un abono fijo de 14 U$s y el costo de los pulsos adicionales es de 0,045 U$s/pulso. a) Escribir las expresiones que relacionan el consumo (en pulsos) con el importe a pagar por factura y la expresión del monto esperado por factura; b) Calcular dicho monto esperado; c) Si se sabe que en esta central hay 580 abonados con consumos inferiores a 200 pulsos, ¿cuántos habrá con consumos inferiores a la median
-```
-
-### Tema VI — Ejercicio 4  (follow_up)
-
-**Motivo:** ¿Cuál es la probabilidad de éxito (valor de p, entre 0 y 1)?
-**Resp. esperada:** 0,4929.
-
-```
-Se tienen dos máquinas para fabricar caños por extrusión de 6 metros de longitud. Un inspector rechaza los caños con fallas; va primero a una máquina y necesita revisar 5 caños para encontrar uno fallado; en la otra lo halla al 3er. caño revisado. Se sabe que las fallas se producen al azar, en la máquina A con un promedio de 1 cada 30 m y en la B, de 1 cada 28 m. ¿Cuál es la probabilidad de que la primera inspección haya sido en la máquina B?
 ```
 
 ### Tema VI — Ejercicio 5  (follow_up)
@@ -379,13 +370,13 @@ Se tienen dos máquinas para fabricar caños por extrusión de 6 metros de longi
 En un proceso de pintura se producen fallas al azar con media 1 falla por unidad. Las normas de control de calidad califican como defectuosa toda unidad con más de 2 fallas. De los tres inspectores, A y B aplican correctamente la norma, pero C, equivocadamente, clasifica como defectuosas las que tienen 2 o más fallas. Si de un grupo de 15 unidades, que se saben inspeccionadas todas por el mismo inspector, hay 3 clasificadas como defectuosas, ¿cuál será la probabilidad de que hayan sido inspeccionadas por C?
 ```
 
-### Tema VI — Ejercicio 6  (follow_up)
+### Tema VI — Ejercicio 9  (follow_up)
 
-**Motivo:** ¿Cuántos ensayos se realizan (valor de n)?
-**Resp. esperada:** 0,0592.
+**Motivo:** ¿Cuál es el total de elementos en el lote (valor de N)?
+**Resp. esperada:** 0,3953.
 
 ```
-Una empresa de instalaciones industriales adquirió en un remate un lote de caños de PVC de 6 m de longitud. Para realizar una estimación del costo real de estos caños, se averigua que este lote podría provenir de alguno de dos fabricantes: el A, cuyo proceso de fabricación continuo presenta 1 falla cada 30 metros, o el B, que, con un proceso más moderno, presenta 1 falla cada 60 metros. En la primera instalación de 300m de longitud en el que se instalaron estos caños, al realizar la prueba hidráulica se tuvieron que cambiar 3 caños. ¿Cuál es la probabilidad de que el lote provenga del proveedo
+Una carpintería recibe el 30% de las tablas (de 0,5m×1,2m) para la construcción de placares, de un aserradero A y el resto de otro aserradero B. Las tablas del aserradero A presentan nudos con intensidad 0,25 nudos/m2 y las del aserradero B, 0,1 nudos/m2. Al revisar al azar las tablas de una partida recién recibida, se encuentra que la primera tabla que tiene algún nudo es la 6a. revisada. ¿Cuál es la probabilidad de que esa partida sea del aserradero A?
 ```
 
 ### Tema VI — Ejercicio 12  (follow_up)
@@ -397,18 +388,18 @@ Una empresa de instalaciones industriales adquirió en un remate un lote de cañ
 La longitud entre fallas consecutivas en procesos continuos de producción (tela, papel, cable, etc.) responde en la mayoría de los casos a la densidad Exponencial donde μ es la longitud media entre fallas. Cierto tipo de cable plástico es suministrado por dos proveedores. Para el proveedor A, que entrega el 70%, la longitud media entre fallas es de 170 m y para el B, que entrega el resto, la longitud media entre fallas es de 200 m. Se eligió un rollo al azar de 250 m de longitud y no se encontraron fallas. ¿Cuál es la probabilidad de que pertenezca al proveedor A?
 ```
 
-### Tema VI — Ejercicio 21  (follow_up)
+### Tema VI — Ejercicio 20  (follow_up)
 
-**Motivo:** ¿Cuál es el total de elementos en el lote (valor de N)?
-**Resp. esperada:** a) 0,3938; b) 0,0509.
+**Motivo:** No pude identificar el modelo estadístico. ¿Cuál es? (Ej: Binomial, Poisson, etc.)
+**Resp. esperada:** 7,44%.
 
 ```
-Se tiene un lote de piezas mezcladas que han sido entregadas por dos proveedores: “A” (el 30%) y “B” (el 70%). La resistencia a la rotura de las piezas correspondientes a “A”, tiene distribución Normal de media 20 tn y desvío estándar 2 tn; mientras que para las piezas correspondientes a “B”, la distribución es Gamma de media 24 tn y desvío estándar 6 tn. a) ¿Cuál es la probabilidad de que una pieza elegida al azar resista 23 tn sin romperse?; b) Si una pieza resistió 23 toneladas sin romperse, ¿cuál es la probabilidad de que provenga del proveedor “A”?
+Una usina dispone de 2 generadores con capacidades de 100 y 150 Mw, respectivamente. Cada generador está detenido, por diversas causas, el 8% del tiempo, siendo las detenciones independientes entre sí. La demanda de energía es una variable con distribución Gamma de media 120 Mw. y desvío estándar 40 Mw. ¿Qué porcentaje del tiempo la demanda queda insatisfecha?
 ```
 
 ### Tema VI — Ejercicio 34  (follow_up)
 
-**Motivo:** Falta información sobre el costo del metro en los rollos separados y no separados
+**Motivo:** Falta la tasa de fallas por metro para completar el modelo
 **Resp. esperada:** a) 2,14 fallas y 0,29 fallas, respectivamente; b) U$s 39,12.
 
 ```
@@ -417,27 +408,45 @@ El control de expedición de una tela que se expende en rollos de 400 metros, se
 
 ### Tema VI — Ejercicio 36  (follow_up)
 
-**Motivo:** No pude identificar el modelo estadístico. ¿Cuál es? (Ej: Binomial, Poisson, etc.)
+**Motivo:** Falta distribución de los rollos cortados y su valor monetario
 **Resp. esperada:** U$s 707,73.
 
 ```
 Una fábrica de cables eléctricos produce un tipo de cable aislado con PVC. Cuando utiliza material recuperado, tiene un promedio de fallas de aislación de 1 cada 400 metros en promedio. Este cable se revisa y se corta en los puntos donde se encuentra una falla y los rollos así obtenidos se dividen en 3 grupos: i) los mayores a 500 metros que se venden con una ganancia de 2 U$s/metro; ii) los mayores a 100 metros con una ganancia de 1,50 U$s/metro, y, iii) los menores a 100 metros que se recuperan con una pérdida de 0,50 U$s/metro y no se venden. Calcular el beneficio esperado promedio por roll
 ```
 
+### Tema VI — Ejercicio 40  (follow_up)
+
+**Motivo:** Falta información sobre el modelo de partidas y la relación entre arribos y partidas
+**Resp. esperada:** a) 1,2102 hs = 1h 12’ 36,79”; b) 4,84 vehículos transportados en promedio.  EJEMPLO DE UN PROBLEMA COMBINANDO MODELOS   Una pieza es suministrada por un proveedor en lotes muy numerosos. Lo que se con
+
+```
+Un servicio de ferry-boat para transporte de automóviles tiene una frecuencia de partidas de 1 cada 2 horas o al completarse el ferry si ello ocurre antes. Cada ferry tiene una capacidad para 5 autos y al partir es  reemplazado de inmediato por otro que atraca en el muelle. Se sabe además que los arribos ocurren al azar a razón de 4 autos por hora. a) Calcular el lapso medio entre partidas; b) Calcular el número medio de vehículos transportados.
+```
+
+### Tema VII — Ejercicio 3  (follow_up)
+
+**Motivo:** Falta información sobre la distribución de las cajas incompletas y la relación entre el peso de las cajas y la cantidad de zapatillas faltantes
+**Resp. esperada:** a) C = 2.581,30 gr; b) 11,24%.
+
+```
+Unas zapatillas económicas se expiden en cajas de cartón corrugado de 6 pares, cada par contenido en su caja individual. Frecuentemente los clientes reciben cajas con unidades faltantes, es decir, que encuentran 11 o menos zapatillas y reclaman furiosamente al vendedor. Para solucionar el problema, se ha decidido efectuar un control al final de la línea de empaque, pero como obviamente sería ilógico abrir cada caja para verificarla, se aplicará el siguiente procedimiento: se colocará una balanza al final de la línea y se pesarán todas las cajas, abriendo luego aquellas cuyo peso sea sospechoso
+```
+
 ### Tema VII — Ejercicio 8  (follow_up)
 
-**Motivo:** Falta la tasa de fallo para calcular S y el modelo TCL
+**Motivo:** No pude identificar el modelo estadístico. ¿Cuál es? (Ej: Binomial, Poisson, etc.)
 **Resp. esperada:** a) 19.374 unidades; b) 20.592 unidades.
 
 ```
 En una fábrica hay tres máquinas, denominadas “A”, “B1” y “B2”. En el siguiente esquema se muestra la disposición de las máquinas y el flujo productivo:   ──────B1 = 50───────➤  ──────A = 100───────➤  ────────100────────➤  ──────B2 = 50───────➤    Los días que vienen los tres operarios, la máquina “A” produce 100 unidades, que son luego procesadas por partes iguales en cada una de las máquinas “B”. Cuando viene el operario de la máquina “A” y falta uno de los operarios de cualquiera de las “B”, la producción es de 50 unidades. Estos operarios faltan cada uno, independiente y aleatoriamente, 1 
 ```
 
-### Tema VII — Ejercicio 13  (follow_up)
+### Tema VII — Ejercicio 14  (follow_up)
 
-**Motivo:** No pude identificar el modelo estadístico. ¿Cuál es? (Ej: Binomial, Poisson, etc.)
-**Resp. esperada:** V = 88,59 gr.
+**Motivo:** Falta varianza de ventas de cada vendedor para armar S = X + Y + Z
+**Resp. esperada:** a) 0,8217; b) 0,3169; c) 18.124 unidades.
 
 ```
-En una máquina se bobinarán carreteles con hilo con un de título 0,04 gr/m (valor que se puede considerar constante para el hilo). El carretel lleno no debe pesar más de 500 gr (por exigencias de uso) y se desea que la probabilidad de que supere este valor sea de 0,01. En el carretel se bobinarán en promedio 10.000 metros de hilo, pero debido a la variabilidad en el frenado de la máquina, dicha longitud varía en ± 2,5% con una probabilidad de 0,99. Se desea conocer el peso promedio de los carreteles vacíos, sabiendo que, por razones de tolerancias constructivas, se tiene un desvío de 3 gr. (Su
+Una empresa tiene 3 vendedores: Pablo, Luis y José. Las ventas diarias (en unidades) de cada uno son sumamente variables y se conocen (por registros históricos) sus medias y sus desvíos, pero no las distribuciones de probabilidad. Dichas características (la media y el desvío) valen, para Pablo: 100 y 45 unidades respectivamente; para Luis: 120 y 30 unidades respectivamente, y, para José: 94 y 15 unidades respectivamente. Calcular: a) La probabilidad de que, en 40 días hábiles, Luis y José en conjunto dupliquen al menos las ventas de Pablo; b) la probabilidad de que, en 60 días hábiles, Luis ve
 ```

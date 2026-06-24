@@ -62,25 +62,87 @@ class Gamma(ContinuousBase):
 
     # ------------------------------------------------------------------
     def cdf_left(self, x: float):
+        """F(x) con el método de la cátedra: vía Poisson si r es entero
+        (≤30, manejable a mano), si no vía Wilson-Hilferty (Φ de tabla)."""
+        from calculation.normal_table import phi, fmt_z
         r, lam = self.r, self.lam
-        fx = float(self._dist.cdf(x)) if x >= 0 else 0.0
         builder = StepBuilder(f"F({x})")
-        builder.add_step(
-            desc="F(x) = Γ_incompleta_regularizada(r, λx) — calculada con función especial",
-            latex=rf"F(x) = I(\lambda x;\, r) = \frac{{\gamma(r,\, \lambda x)}}{{\Gamma(r)}}",
-            level_min=1,
-        )
-        builder.add_step(
-            desc=f"λx = {lam} × {x} = {format_number(lam * x, 4)}",
-            latex=rf"\lambda x = {format_number(lam)} \cdot {x} = {format_number(lam * x, 4)}",
-            result=lam * x, level_min=2,
-        )
-        builder.add_step(
-            desc=f"F({x}) = {format_number(fx, 6)}",
-            latex=rf"F({x}) = {format_number(fx, 6)}",
-            result=fx, level_min=1,
-        )
-        return builder.build(final_value=fx, final_latex=rf"F({x}) = {format_number(fx, 6)}")
+        if x <= 0:
+            builder.add_step(desc="x ≤ 0: F(x) = 0", latex="F(x) = 0", result=0.0, level_min=1)
+            return builder.build(final_value=0.0, final_latex="F(x) = 0")
+
+        mx = lam * x
+        r_round = round(r)
+        r_is_int = abs(r - r_round) < 1e-9
+        use_poisson = r_is_int and r_round <= 30
+
+        if use_poisson:
+            r_int = int(r_round)
+            builder.add_step(
+                desc=("r es entero → método vía Proceso de Poisson asociado: "
+                      "F(x) = P(Poisson(m=λx) ≥ r) = 1 − Σ_(k=0)^(r−1) e^(−m)·m^k/k!"),
+                latex=rf"F(x) = 1 - \sum_{{k=0}}^{{r-1}} \frac{{e^{{-m}}m^k}}{{k!}},\quad m=\lambda x",
+                level_min=1,
+            )
+            builder.add_step(
+                desc=f"m = λx = {format_number(lam)} × {format_number(x)} = {format_number(mx)}",
+                latex=rf"m = \lambda x = {format_number(lam)} \cdot {format_number(x)} = {format_number(mx)}",
+                result=mx, level_min=2,
+            )
+            e_neg_m = math.exp(-mx)
+            cum = 0.0
+            for k in range(r_int):
+                cum += e_neg_m * (mx ** k) / math.factorial(k)
+            builder.add_step(
+                desc=f"Σ_(k=0)^({r_int - 1}) e^(−m)·m^k/k! = {format_number(cum, 6)}",
+                latex=rf"\sum_{{k=0}}^{{{r_int - 1}}} \frac{{e^{{-m}}m^k}}{{k!}} = {format_number(cum, 6)}",
+                result=cum, level_min=2,
+            )
+            fx = 1.0 - cum
+            builder.add_step(
+                desc=f"F({format_number(x)}) = 1 − {format_number(cum)} = {format_number(fx)}",
+                latex=rf"F({format_number(x)}) = 1 - {format_number(cum)} = {format_number(fx)}",
+                result=fx, level_min=1,
+            )
+        else:
+            builder.add_step(
+                desc=("r grande o no entero → aproximación Wilson-Hilferty: "
+                      "Y=(λx/r)^(1/3) ~ N(1−1/(9r), 1/(9r)); F(x) ≈ Φ(Z)"),
+                latex=r"Z = 3\sqrt{r}\left[\left(\frac{\lambda x}{r}\right)^{1/3} - 1 + \frac{1}{9r}\right]",
+                level_min=1,
+            )
+            builder.add_step(
+                desc=f"m = λx = {format_number(lam)} × {format_number(x)} = {format_number(mx)}",
+                latex=rf"m = \lambda x = {format_number(lam)} \cdot {format_number(x)} = {format_number(mx)}",
+                result=mx, level_min=2,
+            )
+            inner = (mx / r) ** (1.0 / 3.0)
+            mu_y = 1.0 - 1.0 / (9.0 * r)
+            sigma_y = math.sqrt(1.0 / (9.0 * r))
+            z = (inner - mu_y) / sigma_y
+            z_t = fmt_z(z)
+            builder.add_step(
+                desc=(f"Y = (m/r)^(1/3) = ({format_number(mx)}/{format_number(r)})^(1/3) = {format_number(inner, 4)}  →  "
+                      f"Z = ({format_number(inner, 4)} − {format_number(mu_y, 4)}) / {format_number(sigma_y, 4)} = {format_number(z_t)}"),
+                latex=rf"Z = {format_number(z_t)}", result=z_t, level_min=2,
+            )
+            fx = phi(z)
+            if z >= 0:
+                builder.add_step(
+                    desc=f"De tabla Z: F({format_number(x)}) = Φ({format_number(z_t)}) = {format_number(fx)}",
+                    latex=rf"F({format_number(x)}) = \Phi({format_number(z_t)}) = {format_number(fx)}",
+                    result=fx, level_min=1,
+                )
+            else:
+                phi_pos = phi(-z)
+                builder.add_step(
+                    desc=(f"Z negativo → Φ(Z) = 1 − Φ(−Z) = 1 − Φ({format_number(fmt_z(-z))}) "
+                          f"= 1 − {format_number(phi_pos)} = {format_number(fx)}  (tabla Z)"),
+                    latex=(rf"F({format_number(x)}) = 1 - \Phi({format_number(fmt_z(-z))})"
+                           rf" = 1 - {format_number(phi_pos)} = {format_number(fx)}"),
+                    result=fx, level_min=1,
+                )
+        return builder.build(final_value=fx, final_latex=rf"F({format_number(x)}) = {format_number(fx)}")
 
     # ------------------------------------------------------------------
     def mean(self):

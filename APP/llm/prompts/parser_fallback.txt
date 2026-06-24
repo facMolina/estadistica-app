@@ -14,7 +14,8 @@ Devolvé un JSON con estas llaves (todas opcionales salvo "status"):
   "params": { ... params del modelo },
   "query_type": "probability" | "cdf_left" | "cdf_right" | "range" | "fractile"
               | "joint_probability" | "marginal"
-              | "mean" | "variance" | "std_dev",
+              | "mean" | "variance" | "std_dev"
+              | "density" | "cond_left" | "cond_right" | "range_mu_fractile",
   "query_params": { ... valores para la consulta (r, a, b, alpha, x, ...) },
   "confidence": 0.0 a 1.0,
   "reason": "string corto si status != complete"
@@ -32,8 +33,24 @@ Reglas:
   Normal: {mu, sigma}. LogNormal: {m, D}. Exponencial: {lam}. Gamma: {r, lam}.
   Weibull: {beta, omega}. GumbelMax/Min: {beta, theta}. Pareto: {theta, b}.
   Uniforme: {a, b}.
-- query_type típicos: "probability" (P(X=r)), "cdf_left" (P(X ≤ r)),
-  "cdf_right" (P(X ≥ r)), "range" (P(a ≤ X ≤ b)), "fractile" (x tal que F(x)=α).
+- query_type típicos (modelos DISCRETOS): "probability" (P(X=r)), "cdf_left"
+  (P(X ≤ r)), "cdf_right" (P(X ≥ r)), "range" (P(a ≤ X ≤ b)), "fractile"
+  (x tal que F(x)=α).
+- query_type típicos (modelos CONTINUOS: Normal, Log-Normal, Exponencial,
+  Gamma, Weibull, GumbelMax, GumbelMin, Pareto, Uniforme): "density" (f(x)),
+  "cdf_left" (F(x)=P(X≤x)), "cdf_right" (G(x)=P(X≥x)), "range" (P(a≤X≤b)),
+  "fractile" (x(α) tal que F(x)=α), "cond_left" (E(X|X<a), cola izquierda),
+  "cond_right" (E(X|X>k), cola derecha — "media de la cola"),
+  "range_mu_fractile" (P(μ ≤ X ≤ x(α))).
+  **Importante — para modelos continuos usá SIEMPRE la llave "x" (no "r")
+  para el valor puntual** en density/cdf_left/cdf_right/cond_left/cond_right;
+  "a"/"b" para range; "alpha" para fractile/range_mu_fractile.
+- Si el enunciado da los parámetros de forma indirecta (percentil, media+
+  varianza, media+moda, etc. en vez de μ/σ/r/λ/θ/b directos), igual devolvé
+  el "model" y los datos crudos disponibles en "params" con las llaves que
+  reconozcas (ej. percentil dado como {"mu":600,"x0":620,"alpha":0.2}) —
+  la app deriva los parámetros finales aguas abajo si hace falta. No intentes
+  resolver la derivación vos mismo.
 - mode="tcl": params = {components: [{name, mean, variance, count}]},
   query_type puede ser "cdf_left|cdf_right|range|fractile" sobre S.
 - mode="compound": agregá compound_type ∈ {"hiper_binomial", "pascal_conditional",
@@ -58,6 +75,26 @@ INPUT: "Llegadas según Poisson con tasa 5 por hora. P(r=0 en una hora)"
 OUTPUT: {"status":"complete","mode":"distributions","model":"Poisson",
 "params":{"m":5},"query_type":"probability",
 "query_params":{"r":0},"confidence":0.95}
+
+INPUT: "El tiempo de vida de una lámpara se distribuye Normal con media 600 horas
+y desvío 30 horas. Hallar P(X>620)."
+OUTPUT: {"status":"complete","mode":"distributions","model":"Normal",
+"params":{"mu":600,"sigma":30},"query_type":"cdf_right",
+"query_params":{"x":620},"confidence":0.95}
+
+INPUT: "El tiempo para reparar r=4 máquinas sigue una Gamma. Se sabe que la
+media es 16 horas y la varianza 4. Hallar P(T<20)."
+OUTPUT: {"status":"complete","mode":"distributions","model":"Gamma",
+"params":{"mu":16,"var":4},"query_type":"cdf_left",
+"query_params":{"x":20},"confidence":0.85,
+"reason":"Media y varianza dados en vez de r,λ directos — la app deriva r=μ²/V, λ=μ/V"}
+
+INPUT: "Los siniestros de una aseguradora siguen una Pareto con mínimo igual a
+la moda, valor 20, y media 25. Hallar la prima esperada de los siniestros
+que superan 30 (media de la cola)."
+OUTPUT: {"status":"complete","mode":"distributions","model":"Pareto",
+"params":{"mu":25,"moda":20},"query_type":"cond_right",
+"query_params":{"x":30},"confidence":0.8}
 
 INPUT: "Multinomial con n=10, p=[0.2, 0.3, 0.5], calcular P(r=[2,3,5])"
 OUTPUT: {"status":"complete","mode":"distributions","model":"Multinomial",

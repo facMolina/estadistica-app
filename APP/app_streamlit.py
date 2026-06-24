@@ -38,6 +38,7 @@ from ui.components.multinomial_ui import (
 )
 from ui.components.tcl_ui import render_tcl_sidebar, render_tcl_main
 from ui.components.theory_ui import render_theory_sidebar, render_theory_main
+from ui.components.formulario_ui import render_formulario_sidebar, render_formulario_main
 from calculation.statistics_common import format_number
 from config.settings import SESSION_CONFIG_PATH
 from interpreter.streamlit_interpreter import interpret_turn, apply_sc_to_session
@@ -168,10 +169,11 @@ with st.sidebar:
     app_mode = st.radio(
         "Modo",
         ["Modelos de Probabilidad", "Datos Agrupados", "Probabilidad",
-         "TCL / Suma de VA", "Consultas Teóricas"],
+         "TCL / Suma de VA", "Consultas Teóricas", "Formulario / Reconocimiento"],
         horizontal=True,
         key="app_mode",
     )
+
     st.divider()
 
     # --- Intérprete de lenguaje natural (todos los modos) ---
@@ -269,7 +271,10 @@ with st.sidebar:
         )
 
         if model_type == "Continuo":
-            cont_cfg = render_continuous_sidebar(sc=sc if _sc_is_cont else None)
+            cont_cfg = render_continuous_sidebar(
+                sc=sc if _sc_is_cont else None,
+                sc_is_new=sc_is_new and _sc_is_cont,
+            )
             modelo = cont_cfg["model_name"]
         else:
             modelo = st.selectbox(
@@ -435,8 +440,14 @@ with st.sidebar:
     # ================================================================
     # MODO: Consultas Teóricas
     # ================================================================
-    else:
+    elif app_mode == "Consultas Teóricas":
         render_theory_sidebar()
+
+    # ================================================================
+    # MODO: Formulario / Reconocimiento
+    # ================================================================
+    else:
+        formulario_busqueda = render_formulario_sidebar()
 
 
 # ---------------------------------------------------------------------------
@@ -484,6 +495,14 @@ if app_mode == "TCL / Suma de VA":
 # ---------------------------------------------------------------------------
 if app_mode == "Consultas Teóricas":
     render_theory_main()
+    st.stop()
+
+
+# ---------------------------------------------------------------------------
+# Contenido principal — Formulario / Reconocimiento
+# ---------------------------------------------------------------------------
+if app_mode == "Formulario / Reconocimiento":
+    render_formulario_main(formulario_busqueda)
     st.stop()
 
 

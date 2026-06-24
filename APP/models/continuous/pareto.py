@@ -176,6 +176,33 @@ class Pareto(ContinuousBase):
         return builder.build(final_value=ku if not math.isinf(ku) else float('inf'),
                              final_latex=rf"Ku = {format_number(ku) if not math.isinf(ku) else r'\infty'}")
 
+    def cond_expectation_right(self, k: float):
+        theta, b = self.theta, self.b
+        if b <= 1:
+            val = math.inf
+            builder = StepBuilder(f"E(X|X>{k})")
+            builder.add_step(desc="E(X|X>k) = ∞  (no existe para b ≤ 1)", level_min=1)
+            return builder.build(final_value=val, final_latex=r"E(X|X>k) = \infty")
+        k_eff = max(k, theta)
+        val = b * k_eff / (b - 1)
+        builder = StepBuilder(f"E(X|X>{k})")
+        builder.add_step(
+            desc="Pareto — fórmula cerrada: E(X|X>k) = b·k/(b−1)  (k ≥ θ)",
+            latex=r"E(X|X>k) = \frac{b \cdot k}{b - 1}",
+            level_min=1,
+        )
+        if k < theta:
+            builder.add_step(
+                desc=f"k = {k} < θ = {theta} → se usa k = θ = {theta}",
+                level_min=2,
+            )
+        builder.add_step(
+            desc=f"E(X|X>{k}) = {b}·{format_number(k_eff)}/({b}−1) = {format_number(val, 6)}",
+            latex=rf"E(X|X>{k}) = \frac{{{b} \cdot {format_number(k_eff)}}}{{{b} - 1}} = {format_number(val, 6)}",
+            result=val, level_min=1,
+        )
+        return builder.build(final_value=val, final_latex=rf"E(X|X>{k}) = {format_number(val, 6)}")
+
     def display_domain(self):
         me = self.theta * 2 ** (1.0 / self.b)
         sigma = self.std_dev().final_value

@@ -308,6 +308,13 @@ _WORD_TO_NUM = {
     "seis": 6, "siete": 7, "ocho": 8, "nueve": 9, "diez": 10,
 }
 
+# Nombres canónicos de modelos continuos (post normalize_model_name), usados
+# para normalizar la salida del fallback LLM (ver _validate_llm_output).
+_CONTINUOUS_MODEL_NAMES = {
+    "Normal", "Log-Normal", "Exponencial", "Gamma", "Weibull",
+    "Gumbel Max", "Gumbel Min", "Pareto", "Uniforme",
+}
+
 
 # ---------------------------------------------------------------------------
 # Clase principal
@@ -324,13 +331,10 @@ class NLParser:
         self._llm = None  # lazy
 
     def _get_llm(self):
-        """Devuelve un OllamaClient si está habilitado, o None."""
+        """Devuelve un OllamaClient, o None si no se pudo instanciar."""
         if self._llm is not None:
             return self._llm
         try:
-            from config.settings import OLLAMA_ENABLED
-            if not OLLAMA_ENABLED:
-                return None
             from llm.ollama_client import OllamaClient
             self._llm = OllamaClient()
             return self._llm
@@ -487,6 +491,7 @@ class NLParser:
                 json_mode=True,
                 temperature=0.0,
                 max_tokens=1024,
+                think=False,
             )
         except Exception:
             return None
@@ -545,12 +550,21 @@ class NLParser:
         }
         mode = mode_map.get(obj.get("mode"), obj.get("mode"))
 
+        # El LLM a veces usa "r" (convención discreta) para el valor puntual de
+        # una consulta continua, que la UI espera bajo la llave "x" — sin este
+        # remapeo, render_continuous_sidebar cae al valor medio por defecto.
+        query_params = obj.get("query_params") or {}
+        if (model in _CONTINUOUS_MODEL_NAMES and isinstance(query_params, dict)
+                and "x" not in query_params and "r" in query_params):
+            query_params = dict(query_params)
+            query_params["x"] = query_params.pop("r")
+
         out: dict = {
             "status": status,
             "model": model,
             "params": obj.get("params") or {},
             "query_type": obj.get("query_type"),
-            "query_params": obj.get("query_params") or {},
+            "query_params": query_params,
         }
         if mode:
             out["mode"] = mode
@@ -1489,11 +1503,18 @@ class NLParser:
 
     def _build_interpretation(self, model: str, params: dict, query_type: str, query_params: dict) -> str:
         params_str = ", ".join(f"{k}={v}" for k, v in params.items())
+        is_cont = model in _CONTINUOUS_MODEL_NAMES
+        var = "x" if is_cont else "r"
         qt_labels = {
             "probability":   "P(r = {r})",
-            "cdf_left":      "F({r}) = P(VA ≤ {r})",
-            "cdf_right":     "G({r}) = P(VA ≥ {r})",
-            "range":         "P({a} ≤ r ≤ {b})",
+            "cdf_left":      f"F({{{var}}}) = P(VA ≤ {{{var}}})",
+            "cdf_right":     f"G({{{var}}}) = P(VA ≥ {{{var}}})",
+            "range":         "P({a} ≤ VA ≤ {b})",
+            "fractile":      "x(α={alpha}) — fractil",
+            "density":       f"f({{{var}}})",
+            "cond_left":     f"E(X | X < {{{var}}})",
+            "cond_right":    f"E(X | X > {{{var}}})",
+            "range_mu_fractile": "P(μ ≤ VA ≤ x(α={alpha}))",
             "full_analysis": "análisis completo",
         }
         label_tmpl = qt_labels.get(query_type, query_type)

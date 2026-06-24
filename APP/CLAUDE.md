@@ -292,6 +292,8 @@ de Multinomial + 5 tests de SumOfRVs (iid, mezcla N+N, steps, `from_model_instan
 | **9** | Guide mode: parse "tema X ej Y" → read PDF → NL parser | **DONE (2026-04-17)** |
 | **10** | TCL (sum of independent RVs), Multinomial, full test suite | **DONE (2026-04-18)** |
 | **v2** | Local reasoning fallback + Consultas Teóricas + CustomPMF + invisibility gate | **DONE (2026-04-18)** |
+| **2º parcial** | Redondeo cátedra + tabla Z + derivación de parámetros + paso a paso cátedra (Normal/Gamma) + esperanza condicional + Bayes continuo + Formulario | **DONE (2026-06-23)** |
+| **v3** | Pestaña "Cálculos extra" (registry extensible): `LinearTransformCalculator` para E(a+bX)/V(a+bX), en discreto estándar + CustomPMF + continuo | **DONE (2026-06-23)** |
 
 ## Sprint v2 — local fallback + Consultas Teóricas
 
@@ -303,14 +305,19 @@ prompts, logs) vive solo en archivos técnicos; la UI no muestra ningún artefac
 - `llm/ollama_client.py` — cliente único contra `http://127.0.0.1:11434`. Métodos
   `is_available()` (cache 30s), `chat(messages, json_mode=...)`, `embed(texts)`,
   `list_models()`. Config en `config/settings.py` (`OLLAMA_HOST/MODEL/TIMEOUT/...`).
-  Primary `qwen2.5:14b-instruct`, fallback `qwen2.5:7b-instruct`, embeddings
+  Primary `qwen3:8b`, fallback `qwen2.5:14b-instruct`, embeddings
   `nomic-embed-text`. Maneja `OllamaUnavailable` en silencio.
 - `interpreter/nl_parser.py` — `_fallback_with_llm(text, regex_result)` +
   `_validate_llm_output(obj)`. Se invoca solo si el regex devolvió
   `need_more_info|error|unknown`. Gate `confidence ≥ 0.6` + validación de shape.
   Campo `_source` (privado) indica `"regex"|"llm"`; la UI lo ignora.
-- `theory/machete_builder.py` — seed de `TEORIA/MACHETE.md` con fórmulas por tema
-  (editable manualmente).
+- `theory/machete_builder.py` — copia `theory/machete_seed.md` → `TEORIA/MACHETE.md`.
+  **Editar el contenido en `machete_seed.md`, NUNCA en `MACHETE.md` directamente**:
+  `build_machete(force=True)` (lo llama `tests/test_theory_flow.py` en cada
+  regresión) sobreescribe `MACHETE.md` desde el seed sin avisar — un test run
+  revierte silenciosamente cualquier edición manual del `.md` generado. Bug real
+  encontrado y corregido el 2026-06-23 (antes el seed era un string Python inline
+  desactualizado; un `force=True` borró la reescritura del 2º parcial).
 - `theory/rag_index.py` — RAG con PyMuPDF + `nomic-embed-text` + cosine en numpy.
   Fallback BM25-lite si no hay embeddings. Cache en `theory/_cache/rag_index.pkl`
   con invalidación por fingerprint de mtime+size.
@@ -359,6 +366,139 @@ C:\Python314\python tests\test_regression_v2.py
 C:\Python314\python -m streamlit run app_streamlit.py
 ```
 
+## 2º Parcial — redondeo, tabla Z, derivación de parámetros, Bayes continuo, Formulario
+
+Alcance: solo temas del 2º parcial (continuas, Proceso de Poisson, TCL, Bayes continuo).
+Discreto y Temas I–III quedaron congelados. Motivación completa en el plan de sprint
+(ver historial de Claude Code); resumen de las piezas nuevas:
+
+### Redondeo cátedra
+
+`calculation/statistics_common.py::_custom_round(value, decimals)` — redondeo medio hacia
+arriba (si el dígito descartado es ≥5, sube), no "banker's rounding". Ejemplo del
+enunciado del parcial: `4.11115 → 4.1112`. Usado por `format_number()`, que es el punto
+único de formateo en toda la app — no hace falta tocar nada más al consumir el cambio.
+
+### Tabla Z de la cátedra
+
+`calculation/normal_table.py`:
+- `phi(z) -> float`: redondea `z` a 2 decimales (`fmt_z`) y devuelve Φ(z) según la tabla
+  estándar embebida (no `scipy.stats.norm.cdf`) — para que el número coincida con la clave
+  del profesor en vez del valor "exacto".
+- `phi_pdf(z)`: densidad estándar (para gráficos/pasos que la necesiten).
+- `z_critico(alpha)`: inversa — fractiles típicos (0.90→1.2816, 0.95→1.6449, 0.975→1.96,
+  0.99→2.3263) + lookup inverso general sobre la misma tabla.
+- `fmt_z(z)`: redondeo del z a 2 decimales antes de buscar en tabla.
+
+Consumido por `models/continuous/normal.py`, `models/continuous/lognormal.py` y
+`tcl/sum_of_rvs.py` — todos resuelven Φ(z) vía esta tabla, no vía scipy, para que el
+paso a paso reproduzca el método de cátedra.
+
+### Derivación de parámetros desde datos indirectos
+
+`models/continuous/derivations.py` — una función por (modelo, combinación de datos
+conocidos) que devuelve `(instancia_modelo, CalcResult)` con el paso a paso de la
+derivación. Implementadas: `normal_from_one_percentile`, `normal_from_two_percentiles`,
+`lognormal_from_mean_std_x`, `gamma_from_mean_variance` (λ=μ/σ², r=μ²/σ²),
+`pareto_from_mean_mode` (θ=moda, b=μ/(μ−θ)), `exponencial_from_mean`,
+`exponencial_from_rate`, `uniforme_from_mean_range`, `gumbel_max_from_mean_var`,
+`gumbel_min_from_mean_var`. La UI (`ui/components/continuous_ui.py`) expone un radio
+*"Ingreso de parámetros: Directo / Desde datos"* por modelo; el `CalcResult` de la
+derivación se renderiza arriba del cálculo de la consulta.
+
+### Paso a paso al método de la cátedra (Normal, Log-Normal, Gamma)
+
+- **Normal / Log-Normal**: `cdf_left`/`fractile` muestran el z redondeado a 2 decimales
+  y el Φ(z) de tabla (vía `normal_table`), no el valor scipy.
+- **Gamma** (`models/continuous/gamma.py::cdf_left`): elige método según `r`:
+  - `r` entero y ≤30 (manejable a mano) → **método Poisson asociado**:
+    `F(x) = P(Poisson(m=λx) ≥ r) = 1 − Σ_{k=0}^{r−1} e^{−m}·m^k/k!`.
+  - `r` grande o no entero → **Wilson-Hilferty** (mismo método que
+    `approximations/approximator.py`, reutilizado acá para el cálculo exacto-cátedra,
+    no solo como aproximación opcional).
+  Verificado contra la guía: `Fg(20/4;0.3)=0.8488`.
+
+### Esperanza condicional / media de la cola
+
+`models/continuous/_base.py::partial_expectation_left` (ya existente) cubre
+`E[X|X<a] = H(a)/F(a)`. Cerradas agregadas: Pareto `E[X|X>k] = b·k/(b−1)`,
+Uniforme `E[X|X>k] = (k+b)/2` y `E[X|X<a] = (a+a_dom)/2`.
+
+### Bayes continuo
+
+`probability/bayes_continuo.py` — Bayes con verosimilitud continua en vez de discreta:
+- `bayes_continuo_point(labels, priors, densities_at_x)` — `P(escenario_i|X=x) ∝ f_i(x)·P_i`.
+- `bayes_continuo_tail_right(labels, priors, g_values)` / `bayes_continuo_tail_left(...)` —
+  versión con cola, `G_i(k)`/`F_i(k)` en vez de la densidad puntual.
+- `bayes_continuo_same_model_thresholds(...)` — variante para "misma familia, distintos
+  parámetros por grupo" (ej. 3 grupos de fósforos, cada uno con su propia Gamma).
+Todas devuelven `CalcResult` con el paso a paso (posteriores, verificación de que suman 1).
+
+### Formulario / Reconocimiento (modo nuevo, estático, sin IA)
+
+`ui/components/formulario_ui.py` — referencia offline portada del `FORMULARIO_2do_Parcial`:
+tabla "qué distribución uso" (con buscador por palabra clave, filtra por `pistas`/`nombre`),
+regla de oro de derivación de parámetros, contenido por distribución (Normal, Log-Normal,
+Exponencial, Weibull, Gumbel Mín/Máx, Pareto, Uniforme, Poisson, Gamma/Erlang), TCL,
+Bayes continuo, 14 plantillas de reconocimiento, tabla Z completa, errores comunes.
+Sin lógica de cálculo — solo `st.markdown`/`st.table`. Dispatcheado desde `app_streamlit.py`
+como 6º modo del radio del sidebar (`render_formulario_sidebar()` + `render_formulario_main()`).
+
+`TEORIA/MACHETE.md` (la fuente del RAG de "Consultas Teóricas") se reescribió con el mismo
+contenido del FORMULARIO. Si se vuelve a editar, invalidar el cache de
+`theory/_cache/rag_index.pkl` para que el RAG lo re-indexe.
+
+### Tests del 2º parcial
+
+`tests/test_examenes_2do_parcial.py` (standalone, 9/9 OK) — resuelve end-to-end los
+ejercicios de `EJEMPLOS/` (modelos `.md` + parciales reales `Segundo_Parcial/*.jpeg` 2024 +
+ejercicios de la guía Temas IV–VII): redondeo, derivación de parámetros, paso a paso
+cátedra, Bayes continuo (2 casos: Pareto multi-modelo y Gamma multi-grupo), esperanza
+condicional cerrada. No está encadenado en `test_regression_v2.py` — correr suelto:
+```bat
+C:\Python314\python tests\test_examenes_2do_parcial.py
+```
+
+## Cálculos extra — Sprint v3
+
+Pestaña adicional "Cálculos extra" en los 3 flujos que tienen una E(X)/V(X) escalar
+bien definida: discreto estándar (`app_streamlit.py`), CustomPMF
+(`ui/components/custom_pmf_ui.py`) y continuo (`ui/components/continuous_ui.py`).
+**No aparece** en Multinomial ni TCL (no tienen un escalar X canónico) ni en
+Datos Agrupados / Probabilidad / Consultas Teóricas (no son distribuciones).
+
+Diseño en registry extensible (`ui/components/extras/`):
+- `_base.py::ExtraCalculator` — ABC: `name`, `short_name`, `description`,
+  `families: set[str]` (subset de `{"discrete", "custom_pmf", "continuous"}`),
+  `applies_to(family, model)`, `render(model, model_label, detail_level)`.
+- `_registry.py::EXTRA_CALCULATORS` — lista de instancias; agregar una calculadora
+  nueva es solo apendear acá.
+- `__init__.py::render_extras_tab(model, model_label, family, detail_level)` —
+  dispatcher: filtra por `applies_to`, si hay 1 sola la renderiza directo, si hay
+  varias muestra un `st.selectbox`.
+- `linear_transform.py::LinearTransformCalculator` — primera (y única, por ahora)
+  calculadora: `g(X) = a + b·X`, `E(g(X)) = a + b·E(X)`, `V(g(X)) = b²·V(X)`.
+  `compute_expectation(model, a, b)` / `compute_variance(model, a, b)` son métodos
+  puros que devuelven `CalcResult` y son reusados internamente por `render()` —
+  permite testear sin levantar Streamlit. Para modelos discretos con dominio chico
+  (`domain_list()`, ≤20 valores) agrega una tabla opcional `x → g(x)·P(x)`.
+
+Cualquier modelo que implemente `mean() -> CalcResult` y `variance() -> CalcResult`
+(contrato de `DiscreteModel`/`ContinuousModel` en `models/base.py`, y replicado por
+`CustomPMF`) funciona automáticamente — no hace falta tocar el modelo.
+
+Tests: `tests/test_qa_smoke.py::qa_extras` (sección `[13]`) — verifica el registro
+de `LinearTransformCalculator`, y 3 casos numéricos (CustomPMF, Binomial, Normal).
+Valor verificado: para `CustomPMF(expr="(x**2-x+2)/k", domain=[0,1,2,3,4])`,
+`E(X)=3`, `V(X)=22/15≈1.4667` → `E(2000+1500X)=6500`, `V(2000+1500X)=3_300_000`
+(el plan original de Sprint v3 tenía un error aritmético acá: decía `4_050_000`).
+
+Cómo agregar una calculadora nueva: crear el archivo en `ui/components/extras/`,
+heredar `ExtraCalculator`, declarar `families`, implementar `render()` (con
+métodos puros testeables si hace cálculo no trivial), y agregar la instancia a
+`EXTRA_CALCULATORS` en `_registry.py`. Ideas pendientes (no implementadas):
+`QuadraticTransform`, `MGFEvaluator`, `UtilityCalculator`.
+
 ## Model formulas quick reference
 
 **Discrete (implemented):**
@@ -372,7 +512,7 @@ C:\Python314\python -m streamlit run app_streamlit.py
 - Normal(mu, sigma): Z=(x-μ)/σ → Φ(Z); E=μ, V=σ², Mo=Me=μ, As=0, Ku=3
 - LogNormal(m, D): Y=ln(x), Z=(Y-m)/D; E=e^(m+D²/2), Mo=e^(m-D²), Me=e^m
 - Exponencial(lam): F=1-e^(-λx); E=1/λ, V=1/λ², As=2, Ku=9
-- Gamma(r, lam): F=incomplete gamma; E=r/λ, V=r/λ², As=2/√r, Ku=3+6/r
+- Gamma(r, lam): F=incomplete gamma (cátedra: vía Poisson si r entero≤30, si no Wilson-Hilferty — ver sección "2º Parcial"); E=r/λ, V=r/λ², As=2/√r, Ku=3+6/r
 - Weibull(beta, omega): F=1-e^(-(x/β)^ω); E=β·Γ(1+1/ω)
 - GumbelMax/GumbelMin(beta, theta): F=e^(-e^(-z)) / F=1-e^(-e^z); E=θ±β·C (C=Euler)
 - Pareto(theta, b): F=1-(θ/x)^b for x≥θ; E=bθ/(b-1) for b>1

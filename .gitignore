@@ -37,12 +37,16 @@ APP/session_config.json
 
 # Runtime logs (Ollama, Streamlit)
 APP/logs/
+streamlit.log
 
 # RAG embeddings cache (regenerable desde TEORIA/)
 APP/theory/_cache/
 
 # Guide PDF index cache (regenerable desde el PDF)
 APP/guide_index/index.json
+
+# graphify knowledge-graph output (regenerable con `graphify update .`)
+graphify-out/
 
 # Jupyter
 .ipynb_checkpoints/

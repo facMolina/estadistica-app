@@ -19,9 +19,9 @@ if command -v ollama >/dev/null 2>&1; then
         sleep 3
     fi
     # Pullear modelos si faltan
-    if ! ollama list 2>/dev/null | grep -q "qwen2.5:7b-instruct"; then
-        echo "  descargando qwen2.5:7b-instruct (una sola vez, ~4.7 GB)..."
-        ollama pull qwen2.5:7b-instruct
+    if ! ollama list 2>/dev/null | grep -q "qwen3:8b"; then
+        echo "  descargando qwen3:8b (una sola vez, puede tardar varios minutos)..."
+        ollama pull qwen3:8b
     fi
     if ! ollama list 2>/dev/null | grep -q "nomic-embed-text"; then
         echo "  descargando nomic-embed-text..."
@@ -35,7 +35,7 @@ echo
 echo "=== Precargando modelo (primera respuesta mas rapida) ==="
 curl -s -X POST http://127.0.0.1:11434/api/generate \
   -H "Content-Type: application/json" \
-  -d '{"model":"qwen2.5:7b-instruct","prompt":"","stream":false,"keep_alive":"2h"}' \
+  -d '{"model":"qwen3:8b","prompt":"","stream":false,"keep_alive":"2h"}' \
   -o /dev/null -w "  warmup HTTP %{http_code} en %{time_total}s\n" 2>/dev/null || true
 
 echo

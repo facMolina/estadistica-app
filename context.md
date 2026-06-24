@@ -1,6 +1,6 @@
 # Contexto del Proyecto: Calculadora de Estadistica con Paso a Paso
 
-Ultima actualizacion: 2026-04-18 (Sprint 10: Multinomial + TCL / Suma de VA + test suite contra la guía)
+Ultima actualizacion: 2026-06-23 (Sprint v3 "Cálculos extra" cerrado, modo examen sin IA eliminado — la app siempre intenta usar IA local; redondeo cátedra, tabla Z, derivación de parámetros, paso a paso cátedra Normal/Gamma, Bayes continuo, Formulario)
 
 ---
 
@@ -225,6 +225,13 @@ APP/
 |-- ui/components/tcl_ui.py         # Sprint 10 — UI modo TCL (data_editor componentes, 3 tabs)
 ```
 
+> **Nota:** este árbol quedó congelado en Sprint 10 (2026-04-18) y no incluye lo agregado en
+> Sprint v2 (`llm/`, `theory/`, `models/discrete/custom_pmf.py`, `ui/components/theory_ui.py`)
+> ni en el Sprint 2º parcial (`calculation/normal_table.py`, `models/continuous/derivations.py`,
+> `probability/bayes_continuo.py`, `ui/components/formulario_ui.py`,
+> `tests/test_examenes_2do_parcial.py`). Para el mapa de módulos vigente, usar `APP/CLAUDE.md`
+> (organizado por tema/sprint, no como árbol de archivos).
+
 ---
 
 ## Estado de sprints
@@ -242,6 +249,83 @@ APP/
 | **7** | Motor de aproximaciones (Hiper→Bi, Bi→N, Bi→Po, Po→N, Gamma→N Wilson-Hilferty) + tests + UI | **HECHO (2026-04-17)** |
 | **9** | Modo guia: "tema X ej Y" → leer PDF → NL parser | **HECHO (2026-04-17)** |
 | **10** | Multinomial (discreto multivariado) + TCL / Suma de VA + test suite contra la guía | **HECHO (2026-04-18)** |
+| **v2** | Local reasoning fallback (Ollama) + Consultas Teóricas (RAG sobre TEORIA/) + CustomPMF + gate de invisibilidad | **HECHO (2026-04-18 aprox.)** |
+| **2º parcial** | Redondeo cátedra + tabla Z + derivación de parámetros desde datos indirectos + paso a paso cátedra (Normal/Log-Normal vía tabla, Gamma vía Poisson/Wilson-Hilferty) + esperanza condicional + Bayes continuo + modo Formulario/Reconocimiento | **HECHO (2026-06-23)** |
+| **v3** | Pestaña "Cálculos extra" (registry extensible): `LinearTransformCalculator` para E(a+bX)/V(a+bX), en discreto estándar + CustomPMF + continuo | **HECHO (2026-06-23)** |
+
+---
+
+## Sprint 2º parcial — detalle (2026-06-23)
+
+Contexto: el usuario rinde el 2º parcial el 24/6, que cubre solo continuas (Normal,
+Log-Normal, Exponencial, Weibull, Gumbel Máx/Mín, Pareto, Uniforme), Proceso de Poisson
+(Poisson, Gamma/Erlang), Suma de variables/TCL y Bayes continuo. Diagnóstico: la app exigía
+parámetros finales (μ,σ,r,λ...) pero los parciales reales dan datos indirectos (percentiles,
+media+varianza, media+moda), el paso a paso usaba scipy en vez del método de cátedra (tabla Z,
+Poisson/Wilson-Hilferty para Gamma), y el redondeo no coincidía con la convención del examen.
+
+Piezas nuevas:
+- `calculation/statistics_common.py::_custom_round` — redondeo medio hacia arriba (≥5 sube),
+  no banker's rounding. Único punto de formateo (`format_number`), no requirió tocar callers.
+- `calculation/normal_table.py` — `phi(z)`, `phi_pdf(z)`, `z_critico(alpha)`, `fmt_z(z)`. Tabla Z
+  estándar embebida (no `scipy.stats.norm.cdf`) para que el número coincida con la clave del
+  profesor. Consumida por `normal.py`, `lognormal.py`, `tcl/sum_of_rvs.py`.
+- `models/continuous/derivations.py` — deriva instancia de modelo + `CalcResult` paso a paso
+  desde datos indirectos: percentil(es) (Normal), media+varianza (Gamma, λ=μ/σ², r=μ²/σ²),
+  media+moda (Pareto, b=μ/(μ−moda)), media (Exponencial), tasa+período, media+rango (Uniforme),
+  media+varianza (Gumbel Máx/Mín). UI: radio "Directo / Desde datos" en `continuous_ui.py`.
+- `models/continuous/gamma.py::cdf_left` — método cátedra: vía Proceso de Poisson asociado si
+  `r` es entero y ≤30; vía Wilson-Hilferty si `r` es grande o no entero. Verificado contra la
+  guía: `Fg(20/4;0.3)=0.8488`.
+- `probability/bayes_continuo.py` — Bayes con verosimilitud continua: punto (`f_i(x)`), cola
+  derecha/izquierda (`G_i(k)`/`F_i(k)`), y variante "misma familia con parámetros por grupo".
+- `ui/components/formulario_ui.py` — modo nuevo "Formulario / Reconocimiento": estático, offline,
+  sin lógica de cálculo, portado del FORMULARIO del 2º parcial (tabla de reconocimiento con
+  buscador, regla de oro de parámetros, plantillas, tabla Z, errores comunes). `TEORIA/MACHETE.md`
+  se reescribió con el mismo contenido (fuente del RAG de Consultas Teóricas).
+  **Bug encontrado y corregido (2026-06-23):** `theory/machete_builder.py` tenía el contenido
+  viejo de `MACHETE.md` hardcodeado como string de Python (`_MACHETE_SEED`); cualquier test que
+  llamara `build_machete(force=True)` (lo hace `tests/test_theory_flow.py`, encadenado en
+  `test_regression_v2.py`) revertía en silencio la reescritura. Fix: el contenido vive ahora en
+  `theory/machete_seed.md` (markdown plano, sin escaping) y `build_machete` solo copia ese
+  archivo a `TEORIA/MACHETE.md`. Editar siempre `machete_seed.md`, nunca `MACHETE.md` directo.
+- `tests/test_examenes_2do_parcial.py` (standalone, 9/9 OK) — resuelve end-to-end ejercicios de
+  `EJEMPLOS/` (modelos `.md` + parciales reales 2024 + guía Temas IV–VII), no encadenado en
+  `test_regression_v2.py`.
+
+Deliberadamente fuera de alcance (congelado): discreto, Temas I–III, soporte de continuas en el
+parser NL (`interpreter/nl_parser.py::MODELO_PATTERNS` solo tiene discretos — la entrada guiada
+por widgets en `continuous_ui.py` cubre la necesidad por ahora).
+
+---
+
+## Sprint v3 — "Cálculos extra" (2026-06-23)
+
+Pestaña nueva, pensada para iterar: registry extensible en `ui/components/extras/`
+(`ExtraCalculator` ABC + `_registry.py` + dispatcher en `__init__.py::render_extras_tab`).
+Primera calculadora: `LinearTransformCalculator` (`linear_transform.py`) — `E(a+b·X)` y
+`V(a+b·X)` por linealidad, con paso a paso vía `StepBuilder`. Aparece en discreto estándar,
+CustomPMF y continuo (no en Multinomial/TCL — no tienen un `E(X)` escalar canónico). Tests en
+`tests/test_qa_smoke.py::qa_extras` (4/4 OK, suite completa 61/61 OK).
+
+Se encontró y corrigió un bug de renderizado: los steps mezclaban fórmula/sustitución/resultado
+en fragmentos LaTeX separados que `display/latex_renderer.py::render_step_latex` une con un
+espacio literal en un solo `st.latex()` — el resultado se veía pegoteado. Fix: cada step ahora es
+una sola ecuación autocontenida (convención ya usada en `models/discrete/binomial.py`).
+
+Cómo agregar la próxima calculadora: crear `ui/components/extras/<nombre>.py` con clase que
+herede `ExtraCalculator`, registrarla en `_registry.py`. Ideas pendientes (no implementadas):
+`QuadraticTransform` (E(a+bX+cX²) discreto), `MGFEvaluator`, `UtilityCalculator`.
+
+## Decisión: siempre usar IA (2026-06-23)
+
+Se eliminó el checkbox "Modo examen (sin IA, 100% offline)" y el toggle manual
+`OLLAMA_ENABLED`/`ollama_enabled()`/`set_ollama_enabled()` en `config/settings.py`. La app
+siempre intenta usar el servicio local de IA; si no está corriendo, `OllamaClient.is_available()`
+sigue devolviendo `False` por el ping real al servicio y las dos features (Consultas Teóricas,
+fallback LLM del parser) degradan en silencio como siempre — eso es robustez ante el servicio
+caído, no una regla de negocio para desactivarlo a propósito. No queda ningún botón ni env var
+para apagar la IA deliberadamente.
 
 ---
 
@@ -249,9 +333,22 @@ APP/
 
 ### Backlog post-Sprint 10 (ver tests/coverage_report.md)
 - Parser de Tema II (probabilidad general): coverage 2/31. Falta mejorar la detección de patrones sin señales fuertes de Bayes.
-- Parser de Tema IV/V/VI (continuas): coverage muy bajo porque los enunciados usan lenguaje de ingeniería (confiabilidad, tiempos de servicio) con menos palabras-clave.
+- Parser de Tema IV/V/VI (continuas): coverage muy bajo porque los enunciados usan lenguaje de ingeniería (confiabilidad, tiempos de servicio) con menos palabras-clave. Pendiente desde antes del 2º parcial: el parser NL nunca llegó a soportar continuas (`MODELO_PATTERNS` solo tiene discretos) — la app las cubre solo vía widgets guiados, no vía texto libre.
 - Extracción NL de componentes para TCL en casos heterogéneos (hoy solo captura "k variables con media μ y varianza σ²" o listas `E(Xi)=..., V(Xi)=...`).
 - Subir el umbral de `test_parse_coverage` a medida que se mejore la cobertura.
+
+### Backlog post-Sprint v2 (heredado de `estadistica_v2.md`, eliminado — contenido migrado acá)
+- **`compound_type=bayes_then_pascal`** (prioridad alta, no implementado): Bayes seguido de Pascal condicional encadenado — no integrado en `compound_solver.py`.
+- **`compound_type=multi_distribution`** (prioridad alta, no implementado): cadenas de 3+ distribuciones — no integrado.
+- **UI dedicada para CustomPMF** (prioridad media): hoy `models/discrete/custom_pmf.py` solo se alcanza vía el parser NL, no hay widgets dedicados en el sidebar.
+- **Exportar machete desde la UI** (prioridad baja): no hay botón de descarga de `TEORIA/MACHETE.md` (o su render) desde la app.
+- **Evaluación del fallback LLM en test automatizado** (prioridad media): el corpus de 11 ejercicios "hard" (de los PDFs de final) no está automatizado porque depende del fallback LLM no determinístico — solo validado manualmente (`MANUAL_REGRESSION_CHECKLIST.md`).
+- **Ampliar corpus RAG a los 8 PDFs completos de TEORIA/** (prioridad media): hoy el RAG indexa lo que hay en `TEORIA/MACHETE.md` + lo que se haya cacheado; no cubre los 8 PDFs fuente completos.
+- **Aproximaciones nuevas Pascal→Normal / Hiper→Normal** (prioridad baja): no implementadas en `approximations/approximator.py` (hoy: Hiper→Bi, Bi→N, Bi→Po, Po→N, Gamma→N).
+
+### WS0 / WS5 del plan del 2º parcial — no completados en esta sesión
+- **Setup de graphify**: time-boxed por el plan, quedó stalled/bloqueado — no se reintentó para no demorar el trabajo del parcial.
+- **Soporte de continuas en el parser NL** (ver arriba): deliberadamente deprioritizado — la entrada guiada por widgets cubre el caso de uso inmediato del parcial.
 
 ---
 

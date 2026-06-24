@@ -52,6 +52,8 @@ MODEL_ALIASES = {
     "Gumbel Mínimo": "Gumbel Min",
     "gumbel max": "Gumbel Max",
     "gumbel min": "Gumbel Min",
+    "GumbelMax": "Gumbel Max",
+    "GumbelMin": "Gumbel Min",
     "Uniform": "Uniforme",
     "uniforme": "Uniforme",
     "pareto": "Pareto",
