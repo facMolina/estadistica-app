@@ -1,8 +1,8 @@
 # Coverage report — parser contra guía PDF
 
 **Total:** 180 ejercicios
-- complete: 132
-- follow_up: 48
+- complete: 130
+- follow_up: 50
 - error: 0
 
 ## Matriz por tema
@@ -11,10 +11,10 @@
 |------|-------|----|-----------|-------|
 | I | 5 | 5 | 0 | 0 |
 | II | 31 | 16 | 15 | 0 |
-| III | 33 | 26 | 7 | 0 |
+| III | 33 | 25 | 8 | 0 |
 | IV | 27 | 22 | 5 | 0 |
 | V | 27 | 16 | 11 | 0 |
-| VI | 40 | 33 | 7 | 0 |
+| VI | 40 | 32 | 8 | 0 |
 | VII | 17 | 14 | 3 | 0 |
 
 ## Ejercicios con fallas (follow_up + error)
@@ -111,7 +111,7 @@ Para los siguientes datos:   A P 0,4 B   ;     P A B P A B 
 
 ### Tema II — Ejercicio 24  (follow_up)
 
-**Motivo:** Falta información sobre la intersección entre tener cuenta corriente y antigüedad
+**Motivo:** Falta tabla o diagrama de Venn para resolver las intersecciones
 **Resp. esperada:** a) 78%; b) 40%; c) 45%.
 
 ```
@@ -129,7 +129,7 @@ Una caja C1 contiene 3 bolillas blancas y 7 rojas. Otra caja C2 tiene 12 blancas
 
 ### Tema II — Ejercicio 27  (follow_up)
 
-**Motivo:** Falta información sobre la relación entre las pruebas A y B
+**Motivo:** Falta información sobre la relación entre las fallas en A y B
 **Resp. esperada:** a) no; b) 5,26%.
 
 ```
@@ -147,7 +147,7 @@ Una ciudad de 1 millón de habitantes se considera dividida en dos zonas: La 1, 
 
 ### Tema II — Ejercicio 31  (follow_up)
 
-**Motivo:** Faltan parámetros para modelar el problema de forma clara
+**Motivo:** Faltan parámetros para modelar el problema de forma completa
 **Resp. esperada:** a) 0,84; b) 0,942; c) 0,04.
 
 ```
@@ -156,11 +156,20 @@ Se han enviado dos vendedores A y B a dos distintos clientes para ofrecer un det
 
 ### Tema III — Ejercicio 2  (follow_up)
 
-**Motivo:** Falta información sobre la distribución del dado y la composición exacta de las cajas
+**Motivo:** ¿Cuántos ensayos se realizan (valor de n)?
 **Resp. esperada:** Una caja: P(1) = 1/90 = 0,0111; P(2) = 8/90 = 4/45 = 0,0889; P(3) = P(4) = P(5) = P(6) = 15/90 = 1/6 = 0,1667;   P(7) = 14/90 = 7/45 = 0,1556; P(8) = 7/90 = 0,0778.  = 4,9; 2 = 3,29.            Otra
 
 ```
 El contenido de bolillas rojas de una caja se ha formado como sigue. Se arrojó un dado y se colocaron tantas como indicó el dado; luego se extrajeron dos bolillas de una caja que contenía 3 blancas y 7 rojas y se introdujeron en la primera caja. Obtener la función de probabilidad, la media y la varianza del número de bolillas rojas que quedaron finalmente en cada una de las cajas.
+```
+
+### Tema III — Ejercicio 4  (follow_up)
+
+**Motivo:** Falta varianza de cada operario para armar S = A1 + A2 + B1 + B2 + B3 + B4 + B5
+**Resp. esperada:** a)  = 51,1329 un. y  = 11,8971 un.; b)  = 53,3711 un. y  = 8,3137 un.
+
+```
+En una línea de montaje se efectúan dos operaciones consecutivas. La operación A se realiza a razón de 30 unidades/día-hombre por cualquiera de dos operarios; la B es realizada a razón de 12 unidades/día-hombre y hay cinco operarios para la misma. Cada operario está regido por la respectiva máquina y, por lo tanto, la producción que realiza es constante. El siguiente esquema muestra el flujo productivo.  Operación “A”  Operación “B”     ───B1 12───➤   ───A1 30───➤  ───B2 12───➤  ─────60────➤  ─────60────➤ ───B3 12───➤ ─────60────➤  ───A2 30────➤  ───B4 12───➤     ───B5 12───➤    Cada operario 
 ```
 
 ### Tema III — Ejercicio 15  (follow_up)
@@ -174,7 +183,7 @@ En una estación de servicio, la distribución de clientes que llegan cada 15' t
 
 ### Tema III — Ejercicio 18  (follow_up)
 
-**Motivo:** Falta especificar si la fracción defectuosa es p o si se necesita calcular p a partir de datos
+**Motivo:** Falta especificar si la fracción defectuosa es p o 1-p
 **Resp. esperada:**     15 14 1-p 1 15p 1 p        .
 
 ```
@@ -192,7 +201,7 @@ Hay dos máquinas que producen un mismo tipo de pieza. La máquina A trabaja con
 
 ### Tema III — Ejercicio 26  (follow_up)
 
-**Motivo:** Falta especificar si se busca el valor de n o c, o ambos
+**Motivo:** Falta n y c para calcular probabilidad
 **Resp. esperada:** n = 301 unidades y c = 17 defectuosas.
 
 ```
@@ -201,7 +210,7 @@ Se desea diseñar un sistema de muestreo periódico para el control de la produc
 
 ### Tema III — Ejercicio 30  (follow_up)
 
-**Motivo:** Falta información sobre el costo esperado y la optimización del costo
+**Motivo:** ¿Cuántos ensayos se realizan (valor de n)?
 **Resp. esperada:** a) U$s 2.823,63; b) hay que repetir el cálculo para distintos valores de n, el valor óptimo se obtiene con n = 9    U$s 2.768,77. Se puede usar el SOLVER del Excel.
 
 ```
@@ -228,7 +237,7 @@ Se supone que, en condiciones normalizadas de funcionamiento, el rendimiento de 
 
 ### Tema IV — Ejercicio 8  (follow_up)
 
-**Motivo:** Falta información sobre la distribución exacta del calibre incorrecto y la probabilidad a priori de usar cada calibre
+**Motivo:** Falta información sobre la distribución exacta del calibre incorrecto y la probabilidad de aceptación para cada calibre
 **Resp. esperada:** 0,5338.
 
 ```
@@ -255,7 +264,7 @@ La duración de los cartuchos de tóner de una impresora láser es variable por 
 
 ### Tema IV — Ejercicio 25  (follow_up)
 
-**Motivo:** Falta información sobre la distribución de salarios
+**Motivo:** Falta información sobre la distribución de salarios para calcular los valores solicitados
 **Resp. esperada:** a) 244,72 U$s; b) 23,52%; c) 214,81 U$s.
 
 ```
@@ -264,7 +273,7 @@ Respecto del problema anterior, la empresa decide otorgar un aumento del 27% a l
 
 ### Tema V — Ejercicio 3  (follow_up)
 
-**Motivo:** Falta media y desviación estándar para calcular el modelo
+**Motivo:** Falta información sobre la media y desviación estándar para identificar la distribución normal
 **Resp. esperada:** a) 492 Kg; b) 0,6140.
 
 ```
@@ -282,7 +291,7 @@ Una carpintería recibe tablas de dos aserraderos A y B. En el primero, la longi
 
 ### Tema V — Ejercicio 9  (follow_up)
 
-**Motivo:** Falta información sobre la distribución de los saldos (normal, etc.) y si se asume independencia entre cuentas corrientes y de ahorro
+**Motivo:** Falta información sobre la distribución de los saldos (Normal, etc.) y parámetros para cada tipo de cuenta
 **Resp. esperada:** a) 58,14%; b) 55,24%.
 
 ```
@@ -300,7 +309,7 @@ Los montos de depósitos a plazo fijo de una financiera tienen distribución Log
 
 ### Tema V — Ejercicio 14  (follow_up)
 
-**Motivo:** Falta información sobre la distribución de los días de adelanto y atraso para calcular el beneficio esperado
+**Motivo:** Falta información sobre la distribución de los días de atraso y adelanto para calcular el beneficio esperado
 **Resp. esperada:** a) U$s 190.782,50; b) 225,4 días promedio en total, o sea 15,4 días promedio a partir de los 210 días transcurridos;   c) 0,2743.
 
 ```
@@ -309,7 +318,7 @@ Una empresa constructora ha ganado honestamente la licitación estatal para una 
 
 ### Tema V — Ejercicio 16  (follow_up)
 
-**Motivo:** Falta información sobre cómo se relaciona la demanda con la capacidad del tren para calcular los puntos b, c y d
+**Motivo:** Falta información sobre el número de pasajes vendidos en cada caso y la relación entre demanda y capacidad
 **Resp. esperada:** a) 538,67 pasajes en promedio; b) 517,95 pasajes; c) 600 pasajes; d) 7.776,96 U$s; e) Hay que buscar la cantidad de vagones para el cual el beneficio esperado es máximo (el resultado es 10 vagones).
 
 ```
@@ -336,7 +345,7 @@ La fabricación de un producto químico se lleva a cabo en un reactor con una ca
 
 ### Tema V — Ejercicio 24  (follow_up)
 
-**Motivo:** Falta información sobre la distribución log-normal para calcular la comisión y la venta media condicional
+**Motivo:** Falta información sobre la distribución de ventas para calcular la comisión promedio
 **Resp. esperada:** a) U$s 245,30; b) U$s 702,29.
 
 ```
@@ -345,7 +354,7 @@ El monto de ventas mensuales realizadas por cada corredor de una empresa sigue u
 
 ### Tema V — Ejercicio 26  (follow_up)
 
-**Motivo:** Falta distribución de saldos para calcular el costo esperado
+**Motivo:** Falta información sobre la distribución de los saldos de las cuentas
 **Resp. esperada:** U$s 35,15.
 
 ```
@@ -397,9 +406,18 @@ La longitud entre fallas consecutivas en procesos continuos de producción (tela
 Una usina dispone de 2 generadores con capacidades de 100 y 150 Mw, respectivamente. Cada generador está detenido, por diversas causas, el 8% del tiempo, siendo las detenciones independientes entre sí. La demanda de energía es una variable con distribución Gamma de media 120 Mw. y desvío estándar 40 Mw. ¿Qué porcentaje del tiempo la demanda queda insatisfecha?
 ```
 
+### Tema VI — Ejercicio 30  (follow_up)
+
+**Motivo:** Detecté la tasa "1 cada 30 meses" ≈ 0.0000 por hora. ¿Cuál es la duración del intervalo de la consulta (en horas)? m = 0.0000 × esa duración (ej: para 1 hora, m≈0.0000).
+**Resp. esperada:** a) 0,1890; b) 7 repuestos.   Uso de las Expectativas parciales
+
+```
+La frecuencia de rotura de una pieza crítica de una máquina se produce al azar a razón de 1 cada 30 meses, se tiene un total de 60 máquinas similares. El stock de repuesto, de esta pieza, en almacén es suficiente para la reparación de 5 máquinas y, se requiere aún de 2 meses para la llegada de una nueva partida. a) ¿Cuál es la probabilidad de que se paren máquinas por agotamiento del stock de repuestos de esta pieza? (considerar despreciable la posibilidad de doble rotura, de esta pieza en una máquina, durante el período citado); b) ¿Qué stock se debería tener, de esta pieza, para asegurar con
+```
+
 ### Tema VI — Ejercicio 34  (follow_up)
 
-**Motivo:** Falta la tasa de fallas por metro para completar el modelo
+**Motivo:** Falta tasa de fallas por metro para calcular parámetro p
 **Resp. esperada:** a) 2,14 fallas y 0,29 fallas, respectivamente; b) U$s 39,12.
 
 ```
@@ -408,7 +426,7 @@ El control de expedición de una tela que se expende en rollos de 400 metros, se
 
 ### Tema VI — Ejercicio 36  (follow_up)
 
-**Motivo:** Falta distribución de los rollos cortados y su valor monetario
+**Motivo:** Falta distribución de los rollos según la posición de las fallas
 **Resp. esperada:** U$s 707,73.
 
 ```
@@ -417,7 +435,7 @@ Una fábrica de cables eléctricos produce un tipo de cable aislado con PVC. Cua
 
 ### Tema VI — Ejercicio 40  (follow_up)
 
-**Motivo:** Falta información sobre el modelo de partidas y la relación entre arribos y partidas
+**Motivo:** Detecté la tasa "1 cada 2 horas" ≈ 0.5000 por hora. ¿Cuál es la duración del intervalo de la consulta (en horas)? m = 0.5000 × esa duración (ej: para 1 hora, m≈0.5000).
 **Resp. esperada:** a) 1,2102 hs = 1h 12’ 36,79”; b) 4,84 vehículos transportados en promedio.  EJEMPLO DE UN PROBLEMA COMBINANDO MODELOS   Una pieza es suministrada por un proveedor en lotes muy numerosos. Lo que se con
 
 ```
@@ -426,7 +444,7 @@ Un servicio de ferry-boat para transporte de automóviles tiene una frecuencia d
 
 ### Tema VII — Ejercicio 3  (follow_up)
 
-**Motivo:** Falta información sobre la distribución de las cajas incompletas y la relación entre el peso de las cajas y la cantidad de zapatillas faltantes
+**Motivo:** Falta varianza de las variables para armar S = 6·X + Y
 **Resp. esperada:** a) C = 2.581,30 gr; b) 11,24%.
 
 ```

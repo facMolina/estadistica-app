@@ -40,6 +40,21 @@ def _iter_pdfs() -> list[str]:
     return out
 
 
+def _iter_teoria_md() -> list[str]:
+    """Apuntes en .md dentro de TEORIA/ (excluye MACHETE.md, que se indexa
+    aparte con boost). Son la fuente teórica rica para preguntas que el MACHETE
+    no cubre en profundidad."""
+    if not os.path.isdir(TEORIA_DIR):
+        return []
+    out: list[str] = []
+    machete_name = os.path.basename(MACHETE_PATH).lower()
+    for name in sorted(os.listdir(TEORIA_DIR)):
+        low = name.lower()
+        if low.endswith(".md") and low != machete_name:
+            out.append(os.path.join(TEORIA_DIR, name))
+    return out
+
+
 def _fingerprint(paths: list[str]) -> str:
     h = hashlib.sha256()
     for p in paths:
@@ -88,6 +103,30 @@ def _extract_chunks_from_pdf(path: str) -> list[Chunk]:
     return chunks
 
 
+def _extract_chunks_from_md_prose(path: str) -> list[Chunk]:
+    """Apuntes largos en .md → chunks por ventana de palabras (~400, overlap 80),
+    igual que los PDFs. Para el MACHETE usar `_extract_chunks_from_md` (estructura
+    por encabezados)."""
+    if not os.path.exists(path):
+        return []
+    try:
+        with open(path, encoding="utf-8") as f:
+            content = f.read()
+    except Exception:
+        return []
+    content = re.sub(r"[ \t]+", " ", content)
+    content = re.sub(r"\n{3,}", "\n\n", content).strip()
+    words = content.split()
+    out: list[Chunk] = []
+    step, size = 320, 400
+    for i in range(0, len(words), step):
+        piece = " ".join(words[i:i + size])
+        if len(piece) < 120:
+            continue
+        out.append(Chunk(text=piece, source_pdf=path, page=i // step + 1))
+    return out
+
+
 def _extract_chunks_from_md(path: str) -> list[Chunk]:
     if not os.path.exists(path):
         return []
@@ -97,8 +136,9 @@ def _extract_chunks_from_md(path: str) -> list[Chunk]:
     except Exception:
         return []
     out: list[Chunk] = []
-    # Partir por secciones "## "
-    blocks = re.split(r"\n(?=##?\s)", content)
+    # Partir por secciones de 1 a 3 niveles ("# ", "## ", "### ") para que cada
+    # distribución/tópico bajo un Tema sea una unidad recuperable independiente.
+    blocks = re.split(r"\n(?=#{1,3}\s)", content)
     for i, block in enumerate(blocks):
         block = block.strip()
         if len(block) < 60:
@@ -115,6 +155,18 @@ def _cosine(a, b):
     if na == 0 or nb == 0:
         return 0.0
     return s / (na * nb)
+
+
+# El MACHETE es contenido curado y correcto; los apuntes crudos traen fórmulas
+# rotas por el OCR. Damos una ventaja SUAVE a los chunks del MACHETE para que
+# ganen los empates, sin tapar pasajes de apunte claramente más relevantes
+# (la autoridad de las fórmulas ya la garantizan las fichas de theory/cards.py).
+_MACHETE_COS_BOOST = 0.04    # aditivo sobre la similitud coseno (rango ~[0,1])
+_MACHETE_BM25_BOOST = 1.3    # multiplicativo sobre el conteo de términos
+
+
+def _is_machete(chunk: "Chunk") -> bool:
+    return os.path.normpath(chunk.source_pdf) == os.path.normpath(MACHETE_PATH)
 
 
 class RAGIndex:
@@ -151,7 +203,8 @@ class RAGIndex:
 
     def build(self, *, force: bool = False) -> int:
         pdfs = _iter_pdfs()
-        current_fp = _fingerprint(pdfs)
+        md_apuntes = _iter_teoria_md()
+        current_fp = _fingerprint(pdfs + md_apuntes)
 
         if not force and self._load_cache() and self._fp == current_fp and self._chunks:
             return len(self._chunks)
@@ -159,6 +212,8 @@ class RAGIndex:
         chunks: list[Chunk] = []
         for pdf in pdfs:
             chunks.extend(_extract_chunks_from_pdf(pdf))
+        for md in md_apuntes:
+            chunks.extend(_extract_chunks_from_md_prose(md))
         chunks.extend(_extract_chunks_from_md(MACHETE_PATH))
         self._chunks = chunks
 
@@ -207,6 +262,8 @@ class RAGIndex:
                 scored: list[tuple[float, Chunk]] = []
                 for c, e in zip(self._chunks, self._embeds):
                     s = _cosine(q_emb, e)
+                    if _is_machete(c):
+                        s += _MACHETE_COS_BOOST
                     scored.append((s, c))
                 scored.sort(key=lambda t: t[0], reverse=True)
                 out = []
@@ -222,6 +279,8 @@ class RAGIndex:
             text_low = c.text.lower()
             s = sum(text_low.count(t) for t in q_terms)
             if s > 0:
+                if _is_machete(c):
+                    s *= _MACHETE_BM25_BOOST
                 scored.append((float(s), c))
         scored.sort(key=lambda t: t[0], reverse=True)
         return [

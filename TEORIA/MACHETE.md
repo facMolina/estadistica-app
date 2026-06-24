@@ -47,8 +47,8 @@ $F(x)+G(x)=1$. Fractil $x_\alpha$: $F(x_\alpha)=\alpha$. $Cv=\sigma/\mu\cdot100$
 | Log-Normal | m, D (de los ln) | asimetría fuerte; logaritmo normal; admite valores bajo la moda; montos/tiempos sesgados |
 | Exponencial | λ | tiempo hasta la primera falla; al azar; sin memoria; tasa constante; fusible/chip |
 | Weibull | α (escala), β (forma) | desgaste; fatiga; riesgo de rotura; esfuerzo de materiales; vida útil |
-| Gumbel del mínimo | α (escala), μ (moda) | valor mínimo de un conjunto; vida humana; sequía; caudal/precipitación mínima |
-| Gumbel del máximo | α (escala), μ (moda) | valor máximo; extremos; inundación; caudal máximo; rotura de correa; elongación máxima |
+| Gumbel del mínimo | α (escala), μ (moda) | valor mínimo de un conjunto; vida humana; sequía; caudal/precipitación mínima; **resistencia / tiempo a la rotura**; eslabón más débil; primer elemento del sistema en fallar; rotura de una correa/cable por esfuerzo o tensión |
+| Gumbel del máximo | α (escala), μ (moda) | valor máximo; extremos; inundación; caudal máximo; **elongación / alargamiento porcentual hasta la rotura** (el hilo se estira tanto como la fibra de máxima elongación) |
 | Pareto | δ (moda/min), b (forma) | mínimo igual a la moda; salarios; ART/seguro pagan el mínimo; inventario mínimo |
 | Uniforme | a, b | entre a y b igualmente probable; freno entre ms; tiempo en app entre minutos |
 | Poisson (proceso) | m = λ·t | número de eventos en un continuo fijo; fallas por semana; llegadas por hora |
@@ -107,6 +107,10 @@ Carga máx. para riesgo ≤ r: $x=\alpha(-\ln(1-r))^{1/\beta}$. β=1 ⇒ Exponen
 ### Gumbel del mínimo
 
 El **mínimo** de un conjunto: vida humana, sequía, caudal/precipitación mínima.
+También **resistencia / tiempo a la rotura** de un material o pieza: el sistema
+falla cuando falla su **eslabón más débil** (el primer elemento en ceder), por
+eso una correa/cable que se rompe por esfuerzo o tensión es un fenómeno de
+**mínimos**. (El exponente lleva signo **+**: $+(x-\mu)/\alpha$.)
 
 $G(x)=P(X>x)=e^{-e^{(x-\mu)/\alpha}}$ (dominio $-\infty$ a $+\infty$)
 
@@ -116,7 +120,11 @@ $G(x)=P(X>x)=e^{-e^{(x-\mu)/\alpha}}$ (dominio $-\infty$ a $+\infty$)
 
 ### Gumbel del máximo
 
-El **máximo** / extremos: inundación, caudal máximo, rotura de correa, elongación máxima.
+El **máximo** / extremos: inundación, caudal máximo, viento máximo. En materiales
+se usa para la **elongación / alargamiento porcentual hasta la rotura** (el hilo
+se estira tanto como la fibra de **máxima** elongación) — NO para la resistencia
+o el tiempo a la rotura, que son de mínimos. (El exponente lleva signo **−**:
+$-(x-\mu)/\alpha$.)
 
 $F(x)=P(X\le x)=e^{-e^{-(x-\mu)/\alpha}}$
 
@@ -124,8 +132,10 @@ $F(x)=P(X\le x)=e^{-e^{-(x-\mu)/\alpha}}$
 |---|---|---|---|---|
 | $\mu+\alpha C$ | $\pi^2\alpha^2/6$ | μ | $\mu-\alpha\ln(\ln2)$ | $x_\alpha=\mu-\alpha\ln(-\ln\alpha)$ |
 
-⚠️ Ojo: la rotura por esfuerzo es un fenómeno de **mínimos** (rompe el eslabón más
-débil) → usar Gumbel del MÍNIMO o Weibull, no Máximo.
+⚠️ Ojo: lo que decide Máximo vs Mínimo es **qué variable se mide**, no la palabra
+"rotura". Si la variable es la **resistencia / el tiempo hasta romperse** (rompe el
+eslabón más débil) → es de **mínimos**: Gumbel del MÍNIMO o Weibull. Solo si la
+variable es la **elongación/alargamiento máximo** del material es de máximos.
 
 ### Pareto
 
@@ -210,7 +220,7 @@ que sea [el escenario raro]?" o "pagó más de k, ¿prob. de accidente grave?".
 - Confundir F (≤) con G (>): el "riesgo" es F, la "confiabilidad" es G.
 - No convertir unidades de continuo (horas vs días vs semana) en Poisson/Exponencial/Gamma.
 - Olvidar interpretar el resultado (varias consignas dan puntos por la interpretación).
-- Usar Gumbel de Máximo para una rotura (es de mínimos) o Pareto para algo que admite valores bajo la moda (es log-normal).
+- Usar Gumbel de Máximo para la resistencia/tiempo a una rotura (es de mínimos: eslabón más débil → Gumbel Mínimo o Weibull; Máximo es solo para la elongación máxima) o Pareto para algo que admite valores bajo la moda (es log-normal).
 - En Pareto, el dominio empieza en δ: P(X<δ)=0.
 - No redondear a 4 decimales hacia arriba (medio hacia arriba, 5º dígito ≥5 sube) como pide la consigna.
 

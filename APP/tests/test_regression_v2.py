@@ -33,6 +33,8 @@ SUITES: list[tuple[str, str]] = [
     ("Sprint v2 — parser LLM",     "test_parser_llm_fallback.py"),
     ("Sprint v2 — theory flow",    "test_theory_flow.py"),
     ("Sprint v2 — UI invisibility", "test_ui_invisibility.py"),
+    ("NL parser — robustness",     "test_nl_parser_robustness.py"),
+    ("Teoría — exactitud",         "test_theory_accuracy.py"),
 ]
 
 

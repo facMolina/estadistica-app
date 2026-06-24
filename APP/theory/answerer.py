@@ -36,8 +36,12 @@ def _load_prompt() -> str:
         )
 
 
-def answer(question: str, history: list[dict] | None = None) -> TheoryAnswer:
+def answer(question: str, history: list[dict] | None = None,
+           model: str | None = None) -> TheoryAnswer:
     """Pregunta teórica → TheoryAnswer(text).
+
+    `model` permite forzar un modelo de Ollama por llamada (usado por el
+    benchmark de WS6); si es None usa el default resuelto.
 
     Silencioso ante errores: si algo falla, devuelve _FALLBACK_TEXT.
     """
@@ -66,8 +70,23 @@ def answer(question: str, history: list[dict] | None = None) -> TheoryAnswer:
             parts.append(f"[contexto {i}]\n{snippet}")
         context_blob = "\n\n".join(parts)
 
+    # Ficha(s) canónica(s) por tópico detectado: fuente de verdad determinística,
+    # antepuesta al contexto de coseno. Garantiza que la fórmula/método correctos
+    # estén frente al modelo aunque el retrieval falle.
+    cards_blob = ""
+    try:
+        from theory.cards import detect_topics, render_cards
+        cards_blob = render_cards(detect_topics(question))
+    except Exception:
+        cards_blob = ""
+
     system = _load_prompt()
     user_parts = [question.strip()]
+    if cards_blob:
+        user_parts.append(
+            "\n\n(FICHA AUTORITATIVA — fórmulas y criterio correctos; reproducí las "
+            "fórmulas EXACTAS de acá, NO menciones que es una ficha):\n" + cards_blob
+        )
     if context_blob:
         user_parts.append(
             "\n\n(Material técnico de fondo — NO mencionar al responder):\n" + context_blob
@@ -86,6 +105,7 @@ def answer(question: str, history: list[dict] | None = None) -> TheoryAnswer:
             json_mode=False,
             temperature=0.2,
             max_tokens=1200,
+            model=model,
         )
     except Exception:
         return TheoryAnswer(text=_FALLBACK_TEXT)

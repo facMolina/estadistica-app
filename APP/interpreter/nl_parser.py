@@ -12,6 +12,45 @@ import re
 # Configuración de reglas — acá se agregan patrones al iterar
 # ---------------------------------------------------------------------------
 
+# Señales inequívocas, chequeadas ANTES que MODELO_PATTERNS en _detect_model.
+# Motivo: MODELO_PATTERNS resuelve colisiones por orden de diccionario (el
+# primer modelo que matchea gana), y Binomial va primero — así que un
+# enunciado de Poisson que mencione "averías" (palabra clave genérica de
+# Binomial) se clasificaba mal. "a razón de" es un marcador de tasa que en
+# este corpus solo aparece en problemas de Poisson, nunca en Binomial/Pascal/
+# etc., así que puede ganar sin riesgo de regresión.
+STRONG_MODEL_PATTERNS: dict[str, list[str]] = {
+    "Binomial": [r"\bbinomial\b", r"\bbernoulli\b"],
+    "Poisson": [r"\bpoisson\b", r"a\s+raz[oó]n\s+de"],
+    "Pascal": [r"\bpascal\b", r"binomial\s+negativa"],
+    "Hipergeometrico": [r"hipergeom[eé]tric[oa]"],
+    "Hiper-Pascal": [r"hiper[-\s]?pascal"],
+    "Multinomial": [r"\bmultinomial\b"],
+}
+
+# Frase de tasa tipo "1 cada medio día" / "4 averías por hora" / "1 cada 2 horas".
+# Usado para convertir la tasa a base horaria cuando falta "m" de Poisson —
+# así el follow-up le muestra al usuario la tasa ya convertida en vez de
+# preguntar a ciegas. Probado empíricamente que el fallback LLM (qwen3:8b)
+# no hace bien esta conversión de unidades (da m=2 en vez de ≈0,0833 para
+# "1 cada medio día" + consulta "en una hora"), por eso esta rama setea
+# _skip_llm en vez de delegarle la conversión.
+_RATE_PHRASE_RE = re.compile(
+    r"(\d+(?:[.,]\d+)?)\s*(?:[a-záéíóúñ]+\s+){0,4}?(?:cada|por)\s+"
+    r"(medi[oa]\s+)?(\d+(?:[.,]\d+)?\s+)?"
+    r"(minutos?|horas?|d[ií]as?|semanas?|meses?|a[ñn]os?)\b",
+    re.IGNORECASE,
+)
+
+_RATE_UNIT_TO_HOURS: list[tuple[str, float]] = [
+    (r"^minuto", 1 / 60),
+    (r"^hora", 1.0),
+    (r"^d[ií]a", 24.0),
+    (r"^semana", 168.0),
+    (r"^mes", 720.0),
+    (r"^a[ñn]o", 8760.0),
+]
+
 # Fase A: keywords para detectar modelo
 MODELO_PATTERNS: dict[str, list[str]] = {
     "Binomial": [
@@ -438,12 +477,29 @@ class NLParser:
         # Verificar params faltantes
         missing_question = self._check_missing(model, params)
         if missing_question:
-            return {
+            result = {
                 "status": "need_more_info",
                 "model": model,
                 "params": params,
                 "question": missing_question,
             }
+            # Poisson + "m" faltante + frase de tasa detectable ("1 cada medio
+            # día", "4 por hora"...): mostramos la tasa ya convertida a base
+            # horaria y dejamos que el usuario fije la ventana final. No
+            # delegamos esto al fallback LLM porque la conversión de unidades
+            # es el punto exacto en que el LLM (qwen3:8b) adivina mal.
+            if model == "Poisson" and "m" not in params:
+                rate_hint = self._detect_rate_per_hour(text_lower)
+                if rate_hint:
+                    rate_per_hour, raw = rate_hint
+                    result["question"] = (
+                        f"Detecté la tasa \"{raw}\" ≈ {rate_per_hour:.4f} por hora. "
+                        f"¿Cuál es la duración del intervalo de la consulta (en horas)? "
+                        f"m = {rate_per_hour:.4f} × esa duración (ej: para 1 hora, "
+                        f"m≈{rate_per_hour:.4f})."
+                    )
+                    result["_skip_llm"] = True
+            return result
 
         # Fase C: tipo de consulta y query_params
         query_type, query_params = self._detect_query(text, text_lower, model, params)
@@ -619,6 +675,10 @@ class NLParser:
     # -----------------------------------------------------------------------
 
     def _detect_model(self, text_lower: str) -> str | None:
+        for model, patterns in STRONG_MODEL_PATTERNS.items():
+            for pat in patterns:
+                if re.search(pat, text_lower):
+                    return model
         for model, patterns in MODELO_PATTERNS.items():
             for pat in patterns:
                 if re.search(pat, text_lower):
@@ -655,6 +715,28 @@ class NLParser:
             if param_name not in params:
                 return question
         return None
+
+    def _detect_rate_per_hour(self, text_lower: str) -> tuple[float, str] | None:
+        """Detecta una frase de tasa ("1 cada medio día", "4 por hora") y la
+        convierte a una tasa equivalente por hora. Devuelve (tasa, texto_matcheado)
+        o None si no encuentra una frase de tasa reconocible."""
+        m = _RATE_PHRASE_RE.search(text_lower)
+        if not m:
+            return None
+        count = float(m.group(1).replace(",", "."))
+        is_half = bool(m.group(2))
+        unit_count_raw = m.group(3)
+        unit_count = float(unit_count_raw.strip().replace(",", ".")) if unit_count_raw else 1.0
+        unit_word = m.group(4)
+        unit_hours = 1.0
+        for pat, hours in _RATE_UNIT_TO_HOURS:
+            if re.match(pat, unit_word):
+                unit_hours = hours
+                break
+        period_hours = unit_hours * unit_count * (0.5 if is_half else 1.0)
+        if period_hours <= 0:
+            return None
+        return count / period_hours, m.group(0)
 
     # -----------------------------------------------------------------------
     # Fase C: detectar tipo de consulta y query_params
