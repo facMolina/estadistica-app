@@ -1,9 +1,11 @@
 """UI para el modo 'Formulario / Reconocimiento'.
 
 Modo estatico, offline, sin IA y sin logica de calculo: porta el contenido del
-FORMULARIO del 2do parcial (tabla de reconocimiento, convenciones de la
-catedra, formulas por distribucion, plantillas de ejercicio, tabla Z y
-errores comunes) para consulta rapida durante el examen.
+FORMULARIO del 2do parcial (arbol de decision, tabla de reconocimiento,
+protocolo para ejercicios combinados, pares que se confunden, anti-trampas,
+convenciones de la catedra, formulas por distribucion, plantillas de
+ejercicio, tabla Z directa e inversa y errores comunes) para consulta rapida
+durante el examen.
 """
 
 from __future__ import annotations
@@ -30,6 +32,101 @@ CONVENCIONES = (
     "- $C$ = constante de Euler-Mascheroni ≈ **0,5772** (solo Gumbel). "
     "$\\Gamma$ = funcion Gamma de Euler (Weibull)."
 )
+
+ARBOL_DECISION = (
+    "**Paso 1 — ¿la variable cuenta o mide?**\n\n"
+    "- **Cuenta** eventos en un continuo fijo (tiempo/espacio) → **Poisson** "
+    "(\"numero de fallas/llamadas/defectos por...\"). Si en cambio cuenta "
+    "exitos en un numero FIJO de ensayos → **Binomial** (con reposicion) o "
+    "**Hipergeometrico** (sin reposicion, poblacion finita chica).\n"
+    "- **Mide** un continuo (tiempo, peso, longitud, dinero) → seguir al Paso 2.\n\n"
+    "**Paso 2 — para variables continuas, revisar en este orden:**\n\n"
+    "1. ¿Tiempo/continuo hasta que ocurra la **primera** falla, al azar, sin "
+    "memoria? → **Exponencial**.\n"
+    "2. ¿Tiempo/continuo hasta la **r-esima** ocurrencia (r>1 conocido, o dan "
+    "media y varianza de un proceso de conteo)? → **Gamma/Erlang**.\n"
+    "3. ¿Hay desgaste/fatiga o \"riesgo de rotura\" que crece con el uso? → "
+    "**Weibull**.\n"
+    "4. ¿Es el **minimo** o **maximo** de un conjunto de variables (vida mas "
+    "corta, crecida mas alta, rafaga maxima)? → **Gumbel del minimo/maximo**.\n"
+    "5. ¿El valor mas habitual es el **minimo posible** y no admite valores "
+    "por debajo de un piso (pagos de seguro, licitaciones)? → **Pareto**.\n"
+    "6. ¿Asimetria fuerte hacia la derecha pero SI admite valores bajo la "
+    "moda? → **Log-Normal**.\n"
+    "7. ¿\"Entre a y b, todo igualmente probable\"? → **Uniforme**.\n"
+    "8. Si nada de lo anterior aplica y la variable es simetrica → "
+    "**Normal** (default cuando no hay ninguna pista especial)."
+)
+
+QUE_DATOS_TE_DAN = [
+    ("Media + moda (la moda es menor y es el minimo)", "Pareto"),
+    ("Media + varianza de un proceso de conteo (tiempo a r eventos)", "Gamma"),
+    ("Media + un percentil (\"el X% esta por debajo de...\")", "Normal / Log-Normal"),
+    ("Media y desvio de X, pero \"el logaritmo es normal\"", "Log-Normal (pasar a m, D)"),
+    ("Solo una tasa (\"1 cada N horas/dias\")", "Exponencial (tiempo) o Poisson (conteo)"),
+    ("n y p, numero fijo de ensayos, con reposicion", "Binomial"),
+    ("N, n y K, sin reposicion, poblacion finita chica", "Hipergeometrico"),
+    ("\"hasta el r-esimo exito\"", "Pascal / Binomial Negativa"),
+    ("Dos o mas variables que se suman (\"total\", \"consumo de n dias\")", "TCL / Suma de normales"),
+]
+
+PROTOCOLO_COMBINADOS = (
+    "1. Subrayar cada magnitud aleatoria distinta del enunciado — si hay mas "
+    "de una variable, el ejercicio es combinado.\n"
+    "2. Separar por inciso: cada inciso suele usar solo una o dos de esas "
+    "variables a la vez, no todas juntas.\n"
+    "3. Identificar la palabra-clave que conecta las partes:\n"
+    "   - \"total\"/\"suma\"/\"en conjunto\" → TCL: sumar medias y "
+    "**varianzas** (nunca desvios).\n"
+    "   - lenguaje condicional (\"dado que\", \"si se sabe que\", \"de "
+    "los que...\") → Bayes o probabilidad condicional, no TCL.\n"
+    "   - una constante fija sumada a una variable aleatoria → desplaza la "
+    "**media**, la varianza no cambia.\n"
+    "   - \"fallan ambos\"/\"los dos a la vez\" → multiplicar probabilidades "
+    "(independencia).\n"
+    "4. Resolver cada parte por separado con su propio modelo y combinar los "
+    "resultados al final, como pide el enunciado."
+)
+
+PARES_CONFUNDIDOS = [
+    ("Exponencial vs Gamma", "¿Es la 1ª falla (r=1) o la r-esima (r>1)?",
+     "r=1 → Exponencial; r>1 → Gamma"),
+    ("Pareto vs Log-Normal", "¿Admite valores por debajo de la moda?",
+     "No → Pareto (dominio desde δ); Si → Log-Normal"),
+    ("Normal vs Log-Normal", "¿Hay asimetria fuerte / valores negativos imposibles?",
+     "Simetrica → Normal; asimetrica a la derecha → Log-Normal"),
+    ("Weibull vs Log-Normal", "¿Es desgaste/fatiga (riesgo crece con el uso) o un "
+     "monto/tiempo sesgado sin relacion con desgaste?",
+     "Desgaste → Weibull; monto/tiempo sesgado → Log-Normal"),
+    ("Weibull vs Exponencial", "¿El riesgo de falla es constante o cambia con la edad?",
+     "Constante (β=1) → Exponencial; creciente/decreciente → Weibull"),
+    ("Gumbel Maximo vs Minimo", "¿Piden el mayor o el menor de un conjunto?",
+     "Mayor (crecida, rafaga) → Maximo; menor (rotura del mas debil, vida mas corta) → Minimo"),
+    ("Poisson vs Binomial", "¿El numero de ensayos es fijo y conocido, o es "
+     "\"eventos en un continuo\"?",
+     "Ensayos fijos n → Binomial; continuo sin n fijo → Poisson"),
+]
+
+ANTI_TRAMPAS = [
+    "\"Rotura de una correa/eslabon por esfuerzo\" → es un fenomeno de "
+    "MINIMOS (rompe el mas debil): Gumbel del MINIMO o Weibull, nunca Gumbel "
+    "del Maximo.",
+    "\"Velocidad del viento\" en general → Weibull (Rayleigh, β=2). Pero la "
+    "\"rafaga MAXIMA\" de un periodo → Gumbel del Maximo.",
+    "Para usar TCL hacen falta n≥25-30 sumandos no normales — sumar 2 o 3 "
+    "variables casi nunca habilita TCL salvo que ya sean Normales.",
+    "\"Hasta la 3ª falla\" es Gamma con r=3, NO Exponencial (que es r=1).",
+    "\"Sin memoria\" solo aplica a la Exponencial, y solo para el TRAMO "
+    "NUEVO tras el punto de corte — no \"reinicia\" la variable original.",
+    "Sumar una constante fija a una variable aleatoria desplaza la media; "
+    "la varianza/desvio NO cambia.",
+    "En Pareto, P(X<δ)=0 siempre — el dominio empieza en δ (la moda = el "
+    "minimo).",
+    "En Weibull, α es la escala y β la forma — no invertirlos al "
+    "reemplazar en la formula.",
+    "Riesgo = F(x) (falla antes de x). Confiabilidad = G(x) (dura mas de "
+    "x). Son complementarios: F+G=1.",
+]
 
 # Cada entrada: nombre, parametros, pistas (texto de busqueda/reconocimiento),
 # contenido markdown completo (formulas, tabla de momentos, casos especiales).
@@ -89,7 +186,8 @@ DISTRIBUCIONES = [
     {
         "nombre": "Weibull",
         "parametros": "α (escala), β (forma)",
-        "pistas": "desgaste; fatiga; riesgo de rotura; esfuerzo de materiales; vida util",
+        "pistas": "desgaste; fatiga; riesgo de rotura; esfuerzo de materiales; vida util; "
+        "velocidad del viento; turbinas eolicas; rayleigh",
         "contenido": (
             "**Cuando:** duracion/rotura con desgaste o fatiga, esfuerzo de materiales, "
             "\"riesgo de rotura\".\n\n"
@@ -118,7 +216,8 @@ DISTRIBUCIONES = [
     {
         "nombre": "Gumbel del maximo",
         "parametros": "α (escala), μ (moda)",
-        "pistas": "valor maximo; extremos; inundacion; caudal maximo; rotura de correa; elongacion maxima",
+        "pistas": "valor maximo; extremos; inundacion; caudal maximo; rotura de correa; "
+        "elongacion maxima; rafaga maxima de viento",
         "contenido": (
             "**Cuando:** el **maximo** / extremos: inundacion, caudal maximo, rotura de correa, "
             "elongacion maxima.\n\n"
@@ -134,7 +233,8 @@ DISTRIBUCIONES = [
     {
         "nombre": "Pareto",
         "parametros": "δ (moda/min), b (forma)",
-        "pistas": "minimo igual a la moda; salarios; ART seguro pagan el minimo; inventario minimo",
+        "pistas": "minimo igual a la moda; salarios; ART seguro pagan el minimo; inventario minimo; "
+        "licitacion; ofrecen el valor minimo para ganar",
         "contenido": (
             "**Cuando:** el valor mas habitual es el **minimo**; pagos de seguros/ART (pagan el "
             "minimo), salarios, inventarios minimos. No admite valores por debajo de δ.\n\n"
@@ -218,6 +318,23 @@ BAYES_CONTINUO_CONTENIDO = (
     "(3) ponderar por la probabilidad previa, (4) Bayes."
 )
 
+CONDICIONAL_AREA_CONTENIDO = (
+    "Patron distinto del Bayes de la seccion anterior: aca hay **una sola** "
+    "distribucion y la pregunta es del tipo \"de los que [cumplen B], ¿que "
+    "porcentaje/probabilidad [cumple A]?\", con A y B definidos sobre la MISMA "
+    "variable.\n\n"
+    "**Truco clave:** si A ⊂ B (el evento A esta completamente contenido en "
+    "B, p.ej. A=\"X<18000\" y B=\"X<20000\"), entonces $A\\cap B=A$ y la formula "
+    "se simplifica a:\n\n"
+    "$$P(A\\mid B)=\\dfrac{P(A\\cap B)}{P(B)}=\\dfrac{P(A)}{P(B)}$$\n\n"
+    "Si B es una cola derecha (\"de los que superan k\"), reemplazar P(B) por "
+    "G(k); si es cola izquierda, por F(k).\n\n"
+    "⚠️ **No confundir con el Bayes continuo:** ahi hay DOS escenarios/hipotesis "
+    "con distinta distribucion o parametros y una probabilidad previa que "
+    "ponderar; aca hay una sola distribucion y el truco es puramente de "
+    "conjuntos (A⊂B)."
+)
+
 PLANTILLAS = [
     ("1", "Normal: P(X>a) / P(a<X<b)", "z=(x-μ)/σ → tabla Φ. Restar acumuladas."),
     ("2", "Normal: hallar σ con un percentil", "z_p de tabla, σ=(x₀-μ)/z_p."),
@@ -281,6 +398,13 @@ _Z_TABLE_ROWS = [
     (3.0, [.9987, .9987, .9987, .9988, .9988, .9989, .9989, .9989, .9990, .9990]),
 ]
 
+# Tabla Z "al reves": area acumulada -> z, para fractiles/percentiles usuales.
+FRACTILES_USUALES = [
+    (0.80, 0.8416), (0.85, 1.0364), (0.90, 1.2816), (0.95, 1.6449),
+    (0.975, 1.9600), (0.98, 2.0537), (0.99, 2.3263), (0.995, 2.5758),
+    (0.999, 3.0902),
+]
+
 
 def render_formulario_sidebar() -> str:
     st.header("Formulario / Reconocimiento")
@@ -334,6 +458,35 @@ def render_formulario_main(busqueda: str = "") -> None:
     with st.expander("Convenciones de la cátedra (F/G, fractil, Cv, constantes)"):
         st.markdown(CONVENCIONES)
 
+    st.markdown("### Cómo deducir el modelo — árbol de decisión")
+    with st.expander("¿Cuenta o mide? Paso a paso", expanded=False):
+        st.markdown(ARBOL_DECISION)
+
+    st.markdown("### ¿Qué datos te dan? → distribución probable")
+    st.table(
+        {
+            "Datos del enunciado": [d for d, _ in QUE_DATOS_TE_DAN],
+            "Distribución probable": [m for _, m in QUE_DATOS_TE_DAN],
+        }
+    )
+
+    st.markdown("### Protocolo para ejercicios combinados")
+    with st.expander("4 pasos cuando hay más de una variable aleatoria", expanded=False):
+        st.markdown(PROTOCOLO_COMBINADOS)
+
+    st.markdown("### Pares que se confunden")
+    st.table(
+        {
+            "Par": [p[0] for p in PARES_CONFUNDIDOS],
+            "Pregunta para decidir": [p[1] for p in PARES_CONFUNDIDOS],
+            "Resolución": [p[2] for p in PARES_CONFUNDIDOS],
+        }
+    )
+
+    st.markdown("### Anti-trampas del enunciado")
+    for t in ANTI_TRAMPAS:
+        st.markdown(f"- 🚩 {t}")
+
     st.markdown("### Distribuciones continuas")
     for d in DISTRIBUCIONES[:8]:
         with st.expander(f"{d['nombre']}  ({d['parametros']})"):
@@ -349,8 +502,10 @@ def render_formulario_main(busqueda: str = "") -> None:
         st.markdown(TCL_CONTENIDO)
 
     st.markdown("### Bayes con distribuciones continuas")
-    with st.expander("Patrón Bayes continuo", expanded=False):
+    with st.expander("Patrón Bayes continuo (dos escenarios/hipótesis)", expanded=False):
         st.markdown(BAYES_CONTINUO_CONTENIDO)
+    with st.expander("Condicional de área con una sola distribución (truco A⊂B)", expanded=False):
+        st.markdown(CONDICIONAL_AREA_CONTENIDO)
 
     st.markdown("### Las ~14 plantillas de ejercicio que se repiten")
     st.table(
@@ -372,6 +527,20 @@ def render_formulario_main(busqueda: str = "") -> None:
             {
                 "z": [f"{z:.1f}" for z, _ in _Z_TABLE_ROWS],
                 **{c: [f"{row[i]:.4f}" for _, row in _Z_TABLE_ROWS] for i, c in enumerate(cols)},
+            }
+        )
+
+    with st.expander("Tabla Z al revés: de área a z (fractiles usuales)", expanded=False):
+        st.markdown(
+            "Para hallar z dado un área no listada acá, buscar el valor más cercano "
+            "dentro del cuerpo de la tabla completa (arriba) y leer fila + columna; "
+            "si no es exacto, interpolar linealmente entre los dos valores más "
+            "próximos. Para área < 0,5 usar simetría: $z_\\alpha=-z_{1-\\alpha}$."
+        )
+        st.table(
+            {
+                "Área acumulada α": [f"{a:.3f}".rstrip("0").rstrip(".") for a, _ in FRACTILES_USUALES],
+                "z_α": [f"{z:.4f}" for _, z in FRACTILES_USUALES],
             }
         )
 

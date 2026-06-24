@@ -106,6 +106,7 @@ def answer(question: str, history: list[dict] | None = None,
             temperature=0.2,
             max_tokens=1200,
             model=model,
+            think=False,
         )
     except Exception:
         return TheoryAnswer(text=_FALLBACK_TEXT)

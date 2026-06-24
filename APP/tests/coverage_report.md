@@ -1,8 +1,8 @@
 # Coverage report — parser contra guía PDF
 
 **Total:** 180 ejercicios
-- complete: 130
-- follow_up: 50
+- complete: 139
+- follow_up: 41
 - error: 0
 
 ## Matriz por tema
@@ -11,11 +11,11 @@
 |------|-------|----|-----------|-------|
 | I | 5 | 5 | 0 | 0 |
 | II | 31 | 16 | 15 | 0 |
-| III | 33 | 25 | 8 | 0 |
+| III | 33 | 26 | 7 | 0 |
 | IV | 27 | 22 | 5 | 0 |
-| V | 27 | 16 | 11 | 0 |
-| VI | 40 | 32 | 8 | 0 |
-| VII | 17 | 14 | 3 | 0 |
+| V | 27 | 21 | 6 | 0 |
+| VI | 40 | 34 | 6 | 0 |
+| VII | 17 | 15 | 2 | 0 |
 
 ## Ejercicios con fallas (follow_up + error)
 
@@ -30,7 +30,7 @@ En una universidad se obtuvo la siguiente información: El 32% de las chicas tie
 
 ### Tema II — Ejercicio 5  (follow_up)
 
-**Motivo:** Falta definir si los eventos son independientes o no para calcular las probabilidades condicionales y la unión
+**Motivo:** Falta información sobre el total de estudiantes para calcular porcentajes
 **Resp. esperada:** a) 50%; b) 20%; c) 30%.
 
 ```
@@ -111,7 +111,7 @@ Para los siguientes datos:   A P 0,4 B   ;     P A B P A B 
 
 ### Tema II — Ejercicio 24  (follow_up)
 
-**Motivo:** Falta tabla o diagrama de Venn para resolver las intersecciones
+**Motivo:** Falta información sobre la intersección entre tener cuenta corriente y antigüedad
 **Resp. esperada:** a) 78%; b) 40%; c) 45%.
 
 ```
@@ -147,7 +147,7 @@ Una ciudad de 1 millón de habitantes se considera dividida en dos zonas: La 1, 
 
 ### Tema II — Ejercicio 31  (follow_up)
 
-**Motivo:** Faltan parámetros para modelar el problema de forma completa
+**Motivo:** Faltan parámetros para modelar el problema de forma clara
 **Resp. esperada:** a) 0,84; b) 0,942; c) 0,04.
 
 ```
@@ -156,7 +156,7 @@ Se han enviado dos vendedores A y B a dos distintos clientes para ofrecer un det
 
 ### Tema III — Ejercicio 2  (follow_up)
 
-**Motivo:** ¿Cuántos ensayos se realizan (valor de n)?
+**Motivo:** Falta información sobre la distribución del dado y la composición exacta de las cajas
 **Resp. esperada:** Una caja: P(1) = 1/90 = 0,0111; P(2) = 8/90 = 4/45 = 0,0889; P(3) = P(4) = P(5) = P(6) = 15/90 = 1/6 = 0,1667;   P(7) = 14/90 = 7/45 = 0,1556; P(8) = 7/90 = 0,0778.  = 4,9; 2 = 3,29.            Otra
 
 ```
@@ -181,15 +181,6 @@ En una línea de montaje se efectúan dos operaciones consecutivas. La operació
 En una estación de servicio, la distribución de clientes que llegan cada 15' tiene la siguiente función de probabilidad: P(0) = 0,2 ; P(1) = 0,4 ; P(2) = 0,3 ; P(3) = 0,1. Además, la probabilidad de que un cliente pague con tarjeta de crédito es p = 0,25. Obtener la distribución de los clientes que en el lapso de 15' pagan con tarjeta de crédito.
 ```
 
-### Tema III — Ejercicio 18  (follow_up)
-
-**Motivo:** Falta especificar si la fracción defectuosa es p o 1-p
-**Resp. esperada:**     15 14 1-p 1 15p 1 p        .
-
-```
-El control de recepción de una pieza que se recibe en grandes partidas consiste en seleccionar una muestra de 15 unidades y rechazar la partida si se encuentran 2 o más defectuosas; si se encuentra ninguna defectuosa, la partida se acepta, pero si se encuentra exactamente 1 se toma una nueva muestra de 15 unidades y, en caso de encontrar aquí alguna defectuosa, rechazar definitivamente la partida, de lo contrario aceptarla. Obtener la expresión para calcular la probabilidad de aceptación de una partida en función de la fracción “p” defectuosa de la misma.
-```
-
 ### Tema III — Ejercicio 20  (follow_up)
 
 **Motivo:** ¿Cuántos ensayos se realizan (valor de n)?
@@ -201,7 +192,7 @@ Hay dos máquinas que producen un mismo tipo de pieza. La máquina A trabaja con
 
 ### Tema III — Ejercicio 26  (follow_up)
 
-**Motivo:** Falta n y c para calcular probabilidad
+**Motivo:** Falta valor de c para calcular n
 **Resp. esperada:** n = 301 unidades y c = 17 defectuosas.
 
 ```
@@ -210,7 +201,7 @@ Se desea diseñar un sistema de muestreo periódico para el control de la produc
 
 ### Tema III — Ejercicio 30  (follow_up)
 
-**Motivo:** ¿Cuántos ensayos se realizan (valor de n)?
+**Motivo:** Falta información sobre el costo esperado de los discos adicionales y el número de discos sobrantes
 **Resp. esperada:** a) U$s 2.823,63; b) hay que repetir el cálculo para distintos valores de n, el valor óptimo se obtiene con n = 9    U$s 2.768,77. Se puede usar el SOLVER del Excel.
 
 ```
@@ -237,7 +228,7 @@ Se supone que, en condiciones normalizadas de funcionamiento, el rendimiento de 
 
 ### Tema IV — Ejercicio 8  (follow_up)
 
-**Motivo:** Falta información sobre la distribución exacta del calibre incorrecto y la probabilidad de aceptación para cada calibre
+**Motivo:** Falta información sobre la distribución exacta del calibre incorrecto y la probabilidad a priori de usar cada calibre
 **Resp. esperada:** 0,5338.
 
 ```
@@ -273,20 +264,11 @@ Respecto del problema anterior, la empresa decide otorgar un aumento del 27% a l
 
 ### Tema V — Ejercicio 3  (follow_up)
 
-**Motivo:** Falta información sobre la media y desviación estándar para identificar la distribución normal
+**Motivo:** Se necesita información sobre la distribución normal para calcular el peso superado por el 15% de los novillos
 **Resp. esperada:** a) 492 Kg; b) 0,6140.
 
 ```
 En un establecimiento agropecuario, el 10% de los novillos que salen a venta pesan más de 500 Kg y el 7% pesan menos de 410 Kg. Calcular: a) el peso superado por el 15% de los novillos; b) la probabilidad de que en una jaula de 25 novillos haya alguno con peso inferior a 400 Kg.
-```
-
-### Tema V — Ejercicio 4  (follow_up)
-
-**Motivo:** Falta información sobre la distribución de las tablas en la partida y la probabilidad a priori de que provengan de A o B
-**Resp. esperada:** 0,5251.
-
-```
-Una carpintería recibe tablas de dos aserraderos A y B. En el primero, la longitud de las mismas tiene distribución Normal con media 3,8 m y desvío estándar 0,3 m; en el segundo, la distribución también es Normal, pero con parámetros 3,9 y 0,35 m respectivamente. Hay una partida en depósito de la cual, por una confusión, se desconoce su origen; en 10 tablas de la misma se encontraron 7 con longitud superior a 3,7 m; ¿cuál es con esta información la probabilidad de que el origen sea B?
 ```
 
 ### Tema V — Ejercicio 9  (follow_up)
@@ -298,31 +280,13 @@ Una carpintería recibe tablas de dos aserraderos A y B. En el primero, la longi
 En un banco, los saldos de cuentas corrientes tienen una media de U$s 320 y un desvío de U$s 425; en tanto que los saldos de cuentas de ahorro tienen una media de U$s 125 y un desvío de U$s 97. Hay 3.500 cuentas corrientes y 1.660 cuentas de ahorro. Calcular: a) ¿Qué porcentaje del total de las cuentas presenta un saldo inferior a U$s 180?; b) De las cuentas con saldos inferiores a U$s 180, ¿qué porcentaje son cuentas corrientes?
 ```
 
-### Tema V — Ejercicio 13  (follow_up)
-
-**Motivo:** No pude identificar el modelo estadístico. ¿Cuál es? (Ej: Binomial, Poisson, etc.)
-**Resp. esperada:** 0,1279.    Uso de las Expectativas parciales
-
-```
-Los montos de depósitos a plazo fijo de una financiera tienen distribución Log-normal con una media de 20.000 U$s y un desvío de 17.500 U$s. Si se eligen al azar 100 depósitos a plazo fijo, ¿cuál es la probabilidad de hallar más de 55 depósitos con montos inferiores a U$s 15.000?
-```
-
 ### Tema V — Ejercicio 14  (follow_up)
 
-**Motivo:** Falta información sobre la distribución de los días de atraso y adelanto para calcular el beneficio esperado
+**Motivo:** Falta información sobre la distribución de los días de adelanto y atraso para calcular el beneficio esperado
 **Resp. esperada:** a) U$s 190.782,50; b) 225,4 días promedio en total, o sea 15,4 días promedio a partir de los 210 días transcurridos;   c) 0,2743.
 
 ```
 Una empresa constructora ha ganado honestamente la licitación estatal para una obra civil por un monto de U$s 600.000 y un plazo de entrega de 210 días, con una cláusula que penaliza en U$s 2.500 cada día de atraso, y un premio de U$s 1.500 por cada día de adelanto. El costo de la obra para la empresa se ha calculado en U$s 330.000 fijos más 500 U$s/día. Además, mediante la teoría de redes, se ha determinado que la duración de los trabajos se distribuye normalmente con una media de 195 días y un desvío estándar de 25 días. a) Calcular el beneficio esperado; b) Si han transcurrido los 210 días 
-```
-
-### Tema V — Ejercicio 16  (follow_up)
-
-**Motivo:** Falta información sobre el número de pasajes vendidos en cada caso y la relación entre demanda y capacidad
-**Resp. esperada:** a) 538,67 pasajes en promedio; b) 517,95 pasajes; c) 600 pasajes; d) 7.776,96 U$s; e) Hay que buscar la cantidad de vagones para el cual el beneficio esperado es máximo (el resultado es 10 vagones).
-
-```
-Una línea de ferrocarril estudia la forma de optimizar el servicio de transporte de pasajeros en viajes de tipo “rápido”. Cada vagón tiene 60 asientos y está prohibido que viajen pasajeros de pie. El tren parte actualmente con 10 vagones (estén o no ocupados) y puede, por lo tanto, llevar como máximo 600 pasajeros. El costo de movimiento del tren se compone de: 1) 650 U$s/vagón; 2) 1.600 U$s por la locomotora y el furgón; 3) 10 U$s/pasajero. Se evalúa además en 25 U$s el lucro cesante por cada pasajero que no consigue pasaje por haberse completado el tren. El precio de cada pasaje es de 40 U$s
 ```
 
 ### Tema V — Ejercicio 17  (follow_up)
@@ -332,24 +296,6 @@ Una línea de ferrocarril estudia la forma de optimizar el servicio de transport
 
 ```
 En una planta se reciben tablas de longitud variable que se clasifican en: Categoría A, las menores de 1,5 metros; Categoría B, las que tienen longitudes comprendidas entre 1,5 y 2 metros; y Categoría C, las mayores de 2 metros. Se sabe que las proporciones son 12%, 58% y 30%, respectivamente. Determinar la longitud media de cada categoría.
-```
-
-### Tema V — Ejercicio 23  (follow_up)
-
-**Motivo:** Falta información sobre distribución de los costos y variables para calcular el costo esperado y probabilidades adicionales
-**Resp. esperada:** a) 16.015,65 U$s; b) 41,97%; c) 0,5530.
-
-```
-La fabricación de un producto químico se lleva a cabo en un reactor con una capacidad óptima de 5.000 kg de materia prima o en otro más pequeño de 1.600 kg. La cantidad de materia prima, que se recibe de otra planta de la misma empresa, es variable día a día con distribución Normal de media 5.200 kg y desvío estándar de 400 kg. Cuando se reciben menos de 5.300 kg, se procesan en el reactor grande (aun cuando por encima de 5.000 kg deben tomarse algunas precauciones especiales que agregan un costo fijo adicional). Por encima de 5.300 kg resulta imposible procesar el excedente en el reactor gran
-```
-
-### Tema V — Ejercicio 24  (follow_up)
-
-**Motivo:** Falta información sobre la distribución de ventas para calcular la comisión promedio
-**Resp. esperada:** a) U$s 245,30; b) U$s 702,29.
-
-```
-El monto de ventas mensuales realizadas por cada corredor de una empresa sigue un comportamiento Log- Normal con una media de 1.200 U$S y un desvío estándar de 900 U$s. Todos los corredores cobran un básico de 100 U$s más una comisión del 10% cuando sus ventas mensuales no superan los 800 U$s y una comisión del 15% sobre el excedente. a) ¿Cuánto cobra en promedio mensualmente cada corredor?; b) ¿cuál es la venta media para los corredores que venden menos que la media?
 ```
 
 ### Tema V — Ejercicio 26  (follow_up)
@@ -388,24 +334,6 @@ En un proceso de pintura se producen fallas al azar con media 1 falla por unidad
 Una carpintería recibe el 30% de las tablas (de 0,5m×1,2m) para la construcción de placares, de un aserradero A y el resto de otro aserradero B. Las tablas del aserradero A presentan nudos con intensidad 0,25 nudos/m2 y las del aserradero B, 0,1 nudos/m2. Al revisar al azar las tablas de una partida recién recibida, se encuentra que la primera tabla que tiene algún nudo es la 6a. revisada. ¿Cuál es la probabilidad de que esa partida sea del aserradero A?
 ```
 
-### Tema VI — Ejercicio 12  (follow_up)
-
-**Motivo:** No pude identificar el modelo estadístico. ¿Cuál es? (Ej: Binomial, Poisson, etc.)
-**Resp. esperada:** 0,6517.
-
-```
-La longitud entre fallas consecutivas en procesos continuos de producción (tela, papel, cable, etc.) responde en la mayoría de los casos a la densidad Exponencial donde μ es la longitud media entre fallas. Cierto tipo de cable plástico es suministrado por dos proveedores. Para el proveedor A, que entrega el 70%, la longitud media entre fallas es de 170 m y para el B, que entrega el resto, la longitud media entre fallas es de 200 m. Se eligió un rollo al azar de 250 m de longitud y no se encontraron fallas. ¿Cuál es la probabilidad de que pertenezca al proveedor A?
-```
-
-### Tema VI — Ejercicio 20  (follow_up)
-
-**Motivo:** No pude identificar el modelo estadístico. ¿Cuál es? (Ej: Binomial, Poisson, etc.)
-**Resp. esperada:** 7,44%.
-
-```
-Una usina dispone de 2 generadores con capacidades de 100 y 150 Mw, respectivamente. Cada generador está detenido, por diversas causas, el 8% del tiempo, siendo las detenciones independientes entre sí. La demanda de energía es una variable con distribución Gamma de media 120 Mw. y desvío estándar 40 Mw. ¿Qué porcentaje del tiempo la demanda queda insatisfecha?
-```
-
 ### Tema VI — Ejercicio 30  (follow_up)
 
 **Motivo:** Detecté la tasa "1 cada 30 meses" ≈ 0.0000 por hora. ¿Cuál es la duración del intervalo de la consulta (en horas)? m = 0.0000 × esa duración (ej: para 1 hora, m≈0.0000).
@@ -417,7 +345,7 @@ La frecuencia de rotura de una pieza crítica de una máquina se produce al azar
 
 ### Tema VI — Ejercicio 34  (follow_up)
 
-**Motivo:** Falta tasa de fallas por metro para calcular parámetro p
+**Motivo:** Falta la tasa de fallas por metro para completar el modelo
 **Resp. esperada:** a) 2,14 fallas y 0,29 fallas, respectivamente; b) U$s 39,12.
 
 ```
@@ -426,7 +354,7 @@ El control de expedición de una tela que se expende en rollos de 400 metros, se
 
 ### Tema VI — Ejercicio 36  (follow_up)
 
-**Motivo:** Falta distribución de los rollos según la posición de las fallas
+**Motivo:** Falta distribución de los rollos cortados y su valor monetario
 **Resp. esperada:** U$s 707,73.
 
 ```
@@ -440,15 +368,6 @@ Una fábrica de cables eléctricos produce un tipo de cable aislado con PVC. Cua
 
 ```
 Un servicio de ferry-boat para transporte de automóviles tiene una frecuencia de partidas de 1 cada 2 horas o al completarse el ferry si ello ocurre antes. Cada ferry tiene una capacidad para 5 autos y al partir es  reemplazado de inmediato por otro que atraca en el muelle. Se sabe además que los arribos ocurren al azar a razón de 4 autos por hora. a) Calcular el lapso medio entre partidas; b) Calcular el número medio de vehículos transportados.
-```
-
-### Tema VII — Ejercicio 3  (follow_up)
-
-**Motivo:** Falta varianza de las variables para armar S = 6·X + Y
-**Resp. esperada:** a) C = 2.581,30 gr; b) 11,24%.
-
-```
-Unas zapatillas económicas se expiden en cajas de cartón corrugado de 6 pares, cada par contenido en su caja individual. Frecuentemente los clientes reciben cajas con unidades faltantes, es decir, que encuentran 11 o menos zapatillas y reclaman furiosamente al vendedor. Para solucionar el problema, se ha decidido efectuar un control al final de la línea de empaque, pero como obviamente sería ilógico abrir cada caja para verificarla, se aplicará el siguiente procedimiento: se colocará una balanza al final de la línea y se pesarán todas las cajas, abriendo luego aquellas cuyo peso sea sospechoso
 ```
 
 ### Tema VII — Ejercicio 8  (follow_up)

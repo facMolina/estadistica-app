@@ -19,12 +19,25 @@ import re
 # Binomial) se clasificaba mal. "a razón de" es un marcador de tasa que en
 # este corpus solo aparece en problemas de Poisson, nunca en Binomial/Pascal/
 # etc., así que puede ganar sin riesgo de regresión.
+# "bernoulli" se sacó de Binomial: no es exclusivo (Pascal/Hiper-Pascal
+# también son secuencias de ensayos Bernoulli) y Binomial va primero en el
+# diccionario, así que se comía enunciados de Pascal que dicen "Bernoulli"
+# además de "Pascal" (ej: "...tercer éxito... ensayos Bernoulli (Pascal)").
+# Queda solo en MODELO_PATTERNS (señal débil, se usa si nada más matchea).
+# El lookahead en \bbinomial\b evita que "distribución binomial negativa"
+# (nombre castellano estándar de Pascal) quede mal clasificada como Binomial
+# por contener la palabra "binomial" como substring de esa frase.
+#
+# "Hiper-Pascal" va antes que "Pascal": \bpascal\b matchea la subcadena
+# "pascal" dentro de "hiper-pascal" (el "-" cuenta como límite de palabra),
+# así que un enunciado que dice "Hiper-Pascal" explícitamente terminaba
+# clasificado como Pascal simple por orden de diccionario.
 STRONG_MODEL_PATTERNS: dict[str, list[str]] = {
-    "Binomial": [r"\bbinomial\b", r"\bbernoulli\b"],
+    "Binomial": [r"\bbinomial\b(?!\s+negativ)"],
     "Poisson": [r"\bpoisson\b", r"a\s+raz[oó]n\s+de"],
-    "Pascal": [r"\bpascal\b", r"binomial\s+negativa"],
     "Hipergeometrico": [r"hipergeom[eé]tric[oa]"],
     "Hiper-Pascal": [r"hiper[-\s]?pascal"],
+    "Pascal": [r"\bpascal\b", r"binomial\s+negativa"],
     "Multinomial": [r"\bmultinomial\b"],
 }
 
@@ -205,7 +218,7 @@ QUERY_PATTERNS: dict[str, list[str]] = {
     "cdf_left":    [
         r"F\s*\(", r"acumulad", r"P\s*\(.*?<=", r"\bcdf\b",
         r"a\s+lo\s+sumo", r"como\s+m[uá]cho", r"no\s+m[aá]s\s+de",
-        r"menos\s+de", r"menor\s+(?:o\s+)?igual",
+        r"(?<!no\s)menos\s+de", r"menor\s+(?:o\s+)?igual",
         r"hasta\s+\d+",               # "hasta 4"
         r"como\s+m[aá]ximo",
         r"\d+\s+o\s+menos",           # "3 o menos"
@@ -354,6 +367,46 @@ _CONTINUOUS_MODEL_NAMES = {
     "Gumbel Max", "Gumbel Min", "Pareto", "Uniforme",
 }
 
+# Keywords de detección (no de extracción de parámetros) para modelos
+# continuos. A diferencia de MODELO_PATTERNS (discretos), esto solo identifica
+# QUÉ modelo es — el usuario completa los parámetros a mano en la pantalla del
+# modelo (ver _detect_continuous_model). Sin esto, cualquier problema continuo
+# sin Ollama disponible termina en un callejón sin salida ("no pude
+# identificar el modelo").
+#
+# Dos niveles, igual que STRONG_MODEL_PATTERNS/MODELO_PATTERNS para discretas:
+#   - STRONG: nombre explícito del modelo ("gamma", "weibull", ...). Se
+#     chequea ANTES de _detect_model() (discreto) porque algunos patrones
+#     discretos genéricos (Poisson: r"\blambda\b", r"\bm\s*=\s*\d") matchean
+#     la misma notación cátedra que usan Gamma/Log-Normal — el nombre
+#     explícito de otro modelo tiene que ganarle a esa ambigüedad.
+#   - WEAK: pistas temáticas/contextuales (sin nombrar el modelo), usadas
+#     solo como último recurso si ni la detección discreta ni un nombre
+#     explícito de continua aparecieron en el texto.
+# Orden: Log-Normal antes de Normal porque "log-normal" matchea \bnormal\b
+# por la "-" como límite de palabra.
+CONTINUOUS_STRONG_PATTERNS: dict[str, list[str]] = {
+    "Log-Normal": [r"log[-\s]?normal", r"logaritmo\s+normal"],
+    "Normal": [r"\bnormal(es)?\b", r"\bgauss"],
+    "Exponencial": [r"\bexponencial\b"],
+    "Gamma": [r"\bgamma\b", r"\berlang\b"],
+    "Weibull": [r"\bweibull\b"],
+    "Gumbel Min": [r"gumbel.*m[ií]nim", r"m[ií]nim.*gumbel"],
+    "Gumbel Max": [r"gumbel.*m[aá]xim", r"m[aá]xim.*gumbel"],
+    "Pareto": [r"\bpareto\b"],
+    "Uniforme": [r"\buniforme\b"],
+}
+
+CONTINUOUS_WEAK_PATTERNS: dict[str, list[str]] = {
+    "Normal": [r"\bcampana\b"],
+    "Exponencial": [r"sin\s+memoria", r"\bfusible\b", r"primera\s+falla"],
+    "Gamma": [r"r-?[eé]sima\s+falla"],
+    "Weibull": [r"\bdesgaste\b", r"\bfatiga\b", r"vida\s+[uú]til"],
+    "Gumbel Min": [r"eslab[oó]n\s+m[aá]s\s+d[eé]bil"],
+    "Gumbel Max": [r"inundaci[oó]n", r"elongaci[oó]n", r"alargamiento"],
+    "Uniforme": [r"igualmente\s+probable"],
+}
+
 
 # ---------------------------------------------------------------------------
 # Clase principal
@@ -442,8 +495,24 @@ class NLParser:
             }
 
         # Fase A: modelo discreto/continuo
+        # Paso A.1: nombre EXPLÍCITO de un modelo continuo ("gamma",
+        # "weibull", "log-normal", ...) gana siempre, incluso antes de la
+        # detección discreta. Necesario porque algunos patrones discretos
+        # genéricos (Poisson: r"\blambda\b", r"\bm\s*=\s*\d") matchean la
+        # misma notación cátedra que usan Gamma/Log-Normal — sin esto, un
+        # enunciado de "Gamma con r=3 y lambda=2" se detecta como Poisson.
+        cont_strong = self._detect_continuous_model(text_lower, include_weak=False)
+        if cont_strong is not None:
+            return self._continuous_redirect(cont_strong)
+
         model = self._detect_model(text_lower)
         if model is None:
+            # Sin keywords discretas ni nombre explícito de continua —
+            # último recurso: pistas temáticas (sin memoria, fusible,
+            # desgaste, inundación, etc.) antes de rendirse.
+            cont_model = self._detect_continuous_model(text_lower)
+            if cont_model is not None:
+                return self._continuous_redirect(cont_model)
             return {
                 "status": "need_more_info",
                 "model": None,
@@ -685,6 +754,39 @@ class NLParser:
                     return model
         return None
 
+    def _detect_continuous_model(self, text_lower: str, include_weak: bool = True) -> str | None:
+        """Solo identifica QUÉ modelo continuo es (no extrae parámetros)."""
+        for model, patterns in CONTINUOUS_STRONG_PATTERNS.items():
+            for pat in patterns:
+                if re.search(pat, text_lower):
+                    return model
+        if include_weak:
+            for model, patterns in CONTINUOUS_WEAK_PATTERNS.items():
+                for pat in patterns:
+                    if re.search(pat, text_lower):
+                        return model
+        return None
+
+    def _continuous_redirect(self, model_name: str) -> dict:
+        """Mismo shape que el branch discreto de "Modelos de Probabilidad"
+        en streamlit_interpreter.py — sin params (no hay extracción por
+        regex para continuas todavía), el usuario los completa a mano ya
+        parado en la pantalla correcta en vez de chocar con el error
+        genérico."""
+        return {
+            "status": "complete",
+            "mode": "Modelos de Probabilidad",
+            "model": model_name,
+            "params": {},
+            "query_type": "full_analysis",
+            "query_params": {},
+            "interpretation": (
+                f"Detecté el modelo {model_name}. No extraigo parámetros "
+                "de continuas por texto libre todavía — completalos a "
+                "mano en esta pantalla."
+            ),
+        }
+
     # -----------------------------------------------------------------------
     # Fase B: extraer parámetros
     # -----------------------------------------------------------------------
@@ -872,6 +974,20 @@ class NLParser:
         for pat in case_sensitive:
             if re.search(pat, text):
                 return True
+        # Guard: "urna"/"bolillas" son vocabulario típico de Hipergeométrico
+        # (sampleo sin reposición), no solo de problemas de eventos/Bayes.
+        # Si el texto trae una señal fuerte e inequívoca de Hipergeométrico,
+        # priorizamos la detección de modelo en vez de capturarlo acá.
+        hiper_signals = [
+            r"sin\s+reposici[oó]n",
+            r"hipergeom[eé]tric[oa]",
+            r"\blote\b",
+            r"\bpartida\b",
+            r"[FGPfgp]h\s*\(",   # notación cátedra: Fh(), Gh(), Ph()
+        ]
+        for pat in hiper_signals:
+            if re.search(pat, text_lower):
+                return False
         # Medium signals — need 2 or more
         medium_count = 0
         medium = [
