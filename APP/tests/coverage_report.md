@@ -30,7 +30,7 @@ En una universidad se obtuvo la siguiente información: El 32% de las chicas tie
 
 ### Tema II — Ejercicio 5  (follow_up)
 
-**Motivo:** Falta información sobre el total de estudiantes para calcular porcentajes
+**Motivo:** Falta definir si los eventos son independientes o no para calcular probabilidades condicionales y uniones
 **Resp. esperada:** a) 50%; b) 20%; c) 30%.
 
 ```
@@ -111,7 +111,7 @@ Para los siguientes datos:   A P 0,4 B   ;     P A B P A B 
 
 ### Tema II — Ejercicio 24  (follow_up)
 
-**Motivo:** Falta información sobre la intersección entre tener cuenta corriente y antigüedad
+**Motivo:** Falta tabla o diagrama de Venn para resolver las intersecciones
 **Resp. esperada:** a) 78%; b) 40%; c) 45%.
 
 ```
@@ -129,7 +129,7 @@ Una caja C1 contiene 3 bolillas blancas y 7 rojas. Otra caja C2 tiene 12 blancas
 
 ### Tema II — Ejercicio 27  (follow_up)
 
-**Motivo:** Falta información sobre la relación entre las fallas en A y B
+**Motivo:** Falta información sobre la relación entre las fallas en A y B para determinar independencia
 **Resp. esperada:** a) no; b) 5,26%.
 
 ```
@@ -147,7 +147,7 @@ Una ciudad de 1 millón de habitantes se considera dividida en dos zonas: La 1, 
 
 ### Tema II — Ejercicio 31  (follow_up)
 
-**Motivo:** Faltan parámetros para modelar el problema de forma clara
+**Motivo:** Falta información sobre la independencia o dependencia de los eventos
 **Resp. esperada:** a) 0,84; b) 0,942; c) 0,04.
 
 ```
@@ -156,7 +156,7 @@ Se han enviado dos vendedores A y B a dos distintos clientes para ofrecer un det
 
 ### Tema III — Ejercicio 2  (follow_up)
 
-**Motivo:** Falta información sobre la distribución del dado y la composición exacta de las cajas
+**Motivo:** Falta información sobre la distribución del dado y la variabilidad en el número de bolillas rojas tras la extracción e introducción
 **Resp. esperada:** Una caja: P(1) = 1/90 = 0,0111; P(2) = 8/90 = 4/45 = 0,0889; P(3) = P(4) = P(5) = P(6) = 15/90 = 1/6 = 0,1667;   P(7) = 14/90 = 7/45 = 0,1556; P(8) = 7/90 = 0,0778.  = 4,9; 2 = 3,29.            Otra
 
 ```
@@ -192,7 +192,7 @@ Hay dos máquinas que producen un mismo tipo de pieza. La máquina A trabaja con
 
 ### Tema III — Ejercicio 26  (follow_up)
 
-**Motivo:** Falta valor de c para calcular n
+**Motivo:** Falta especificar si se busca el valor de n o c, o ambos
 **Resp. esperada:** n = 301 unidades y c = 17 defectuosas.
 
 ```
@@ -264,7 +264,7 @@ Respecto del problema anterior, la empresa decide otorgar un aumento del 27% a l
 
 ### Tema V — Ejercicio 3  (follow_up)
 
-**Motivo:** Se necesita información sobre la distribución normal para calcular el peso superado por el 15% de los novillos
+**Motivo:** Falta información sobre la media y desviación estándar para identificar la distribución normal
 **Resp. esperada:** a) 492 Kg; b) 0,6140.
 
 ```
@@ -282,7 +282,7 @@ En un banco, los saldos de cuentas corrientes tienen una media de U$s 320 y un d
 
 ### Tema V — Ejercicio 14  (follow_up)
 
-**Motivo:** Falta información sobre la distribución de los días de adelanto y atraso para calcular el beneficio esperado
+**Motivo:** Falta información sobre la distribución de la variable aleatoria para calcular el beneficio esperado y la probabilidad de ganar menos de U$s 165.000
 **Resp. esperada:** a) U$s 190.782,50; b) 225,4 días promedio en total, o sea 15,4 días promedio a partir de los 210 días transcurridos;   c) 0,2743.
 
 ```
@@ -345,7 +345,7 @@ La frecuencia de rotura de una pieza crítica de una máquina se produce al azar
 
 ### Tema VI — Ejercicio 34  (follow_up)
 
-**Motivo:** Falta la tasa de fallas por metro para completar el modelo
+**Motivo:** Falta tasa de fallas por metro para calcular p
 **Resp. esperada:** a) 2,14 fallas y 0,29 fallas, respectivamente; b) U$s 39,12.
 
 ```
@@ -354,7 +354,7 @@ El control de expedición de una tela que se expende en rollos de 400 metros, se
 
 ### Tema VI — Ejercicio 36  (follow_up)
 
-**Motivo:** Falta distribución de los rollos cortados y su valor monetario
+**Motivo:** Falta distribución de los rollos según la posición de las fallas
 **Resp. esperada:** U$s 707,73.
 
 ```
